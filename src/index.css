@@ -1,0 +1,35 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Orbitron:wght@400;500;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-void-black text-starlight-white font-sans overflow-hidden antialiased;
+    background-image: linear-gradient(170deg, #050507 0%, #101420 100%);
+    min-height: 100vh;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-orbitron;
+  }
+}
+
+@layer utilities {
+  .glass-panel {
+    @apply bg-opacity-10 bg-white backdrop-filter backdrop-blur-lg border border-white/10 shadow-glass-panel;
+  }
+  
+  .glass-sidebar {
+    @apply bg-[#050507]/80 backdrop-filter backdrop-blur-xl border-r border-white/5;
+  }
+
+  .nav-item-active {
+    @apply text-neon-cyan bg-neon-cyan/10 border-r-2 border-neon-cyan drop-shadow-[0_0_8px_rgba(0,243,255,0.3)];
+  }
+
+  .nav-item-hover {
+    @apply hover:bg-white/5 hover:text-white transition-all duration-300;
+  }
+}

@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <style>
+        body {
+            margin: 0;
+            background-color: transparent;
+            overflow: hidden;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        #time-log {
+            position: absolute;
+            bottom: 30px;
+            left: 30px;
+            /* Default to Closed State (Corner) */
+            transition: left 0.3s ease-in-out;
+            /* Smooth slide */
+            color: rgba(255, 255, 255, 0.8);
+            background: transparent;
+            padding: 0;
+            border: none;
+            font-size: 12px;
+            font-family: 'Courier New', Courier, monospace;
+            pointer-events: none;
+            user-select: none;
+        }
+    </style>
+
+    <script src="//unpkg.com/three"></script>
+    <script src="//unpkg.com/globe.gl"></script>
+    <script src="//unpkg.com/satellite.js/dist/satellite.min.js"></script>
+    <script>
+        // Listen for Sidebar State from Parent
+        window.addEventListener('message', (event) => {
+            if (event.data.type === 'SIDEBAR_STATE') {
+                const timeLog = document.getElementById('time-log');
+                if (timeLog) {
+                    timeLog.style.left = event.data.isOpen ? '290px' : '30px';
+                }
+            }
+        });
+    </script>
+</head>
+
+<body>
+    <div id="globeViz"></div>
+    <div id="time-log">Loading Satellites...</div>
+
+    <script>
+        // CONFIG
+        const EARTH_RADIUS_KM = 6371; // km
+        // const TIME_STEP = 3 * 1000; // REMOVED: User wants real-time
+
+        const timeLogger = document.getElementById('time-log');
+
+        // Initialize Globe (Factory Pattern)
+        const world = Globe({ animateIn: false, alpha: true })
+            (document.getElementById('globeViz'))
+            .globeImageUrl('//unpkg.com/three-globe/example/img/earth-blue-marble.jpg')
+            .backgroundColor('rgba(0,0,0,0)') // Transparent Background
+            .particleLat('lat')
+            .particleLng('lng')
+            .particleAltitude('alt')
+            .particlesColor(() => '#00ff00') // Bright Green
+            .particlesSize(0.5); // Size of particles
+
+        // Auto-resize
+        world.width(window.innerWidth).height(window.innerHeight);
+        window.addEventListener('resize', () => {
+            world.width(window.innerWidth).height(window.innerHeight);
+        });
+
+        // Mouse Move Forwarding
+        document.addEventListener('mousemove', (e) => {
+            window.parent.postMessage({
+                type: 'MOUSE_MOVE_FORWARD',
+                clientX: e.clientX,
+                clientY: e.clientY
+            }, '*');
+        });
+
+        // TLE Data Logic (User Snippet Adapted)
+        fetch('//unpkg.com/globe.gl/example/datasets/space-track-leo.txt').then(r => r.text()).then(rawData => {
+            const tleData = rawData.replace(/\r/g, '')
+                .split(/\n(?=[^12])/)
+                .filter(d => d)
+                .map(tle => tle.split('\n'));
+
+            const satData = tleData.map(([name, ...tle]) => ({
+                satrec: satellite.twoline2satrec(...tle),
+                name: name.trim().replace(/^0 /, '')
+            }))
+                .filter(d => !!satellite.propagate(d.satrec, new Date())?.position);
+
+            // Use current time
+            let time = new Date();
+
+            (function frameTicker() {
+                requestAnimationFrame(frameTicker);
+
+                // REAL-TIME UPDATE: Match exact system time
+                time = new Date();
+
+                timeLogger.innerText = time.toString();
+
+                // Update satellite positions
+                const gmst = satellite.gstime(time);
+                satData.forEach(d => {
+                    const eci = satellite.propagate(d.satrec, time);
+                    if (eci?.position) {
+                        const gdPos = satellite.eciToGeodetic(eci.position, gmst);
+                        d.lat = satellite.radiansToDegrees(gdPos.latitude);
+                        d.lng = satellite.radiansToDegrees(gdPos.longitude);
+                        d.alt = gdPos.height / EARTH_RADIUS_KM;
+                    } else {
+                        d.lat = NaN;
+                        d.lng = NaN;
+                        d.alt = NaN;
+                    }
+                });
+
+                // Render with Particles (High Perf, No Lines)
+                // WRAPPING IN ARRAY as per user snippet: [ satData ]
+                world.particlesData([
+                    satData.filter(d =>
+                        !isNaN(d.lat) &&
+                        !isNaN(d.lng) &&
+                        !isNaN(d.alt) &&
+                        d.alt < 1.0 // USER REQ: Remove far satellites
+                    )
+                ]);
+            })();
+        });
+    </script>
+</body>
+
+</html>
