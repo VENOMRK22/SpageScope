@@ -508,8 +508,8 @@ export const fetchRealLaunches = async (): Promise<Launch[]> => {
         const docRef = doc(db, CACHE_COLLECTION, CACHE_DOC_ID);
         const docSnap = await getDoc(docRef);
 
-        let launches: Launch[] = [];
-        let needsUpdate = true;
+        // let launches: Launch[] = [];
+        // let needsUpdate = true;
 
         // 1. Check Cache
         if (docSnap.exists()) {

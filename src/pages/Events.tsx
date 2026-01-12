@@ -9,7 +9,7 @@ import { SPACE_METRICS } from '../data/spaceDefinitions';
 
 export const Events: React.FC = () => {
     const { events, loading } = useContext(DataContext);
-    const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
+    const [selectedEventId, setSelectedEventId] = useState<number | string | null>(null);
     const { setSidebarOpen } = useOutletContext<{ setSidebarOpen: React.Dispatch<React.SetStateAction<boolean>> }>();
 
     // Select first event by default
