@@ -51,7 +51,7 @@ const SITE_KNOWLEDGE = {
 export const ChatbotModule: React.FC = () => {
     const navigate = useNavigate(); // Hook into Site Navigation
     const [isOpen, setIsOpen] = useState(false);
-    
+
     // Voice Config
     const [isVoiceEnabled, setIsVoiceEnabled] = useState(false);
     const [isPlaying, setIsPlaying] = useState(false);
@@ -80,7 +80,7 @@ export const ChatbotModule: React.FC = () => {
     ]);
     const [inputText, setInputText] = useState('');
     const [isWriting, setIsWriting] = useState(false);
-    
+
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
@@ -92,7 +92,7 @@ export const ChatbotModule: React.FC = () => {
 
     // --- VOICE SYNTHESIS (Groq + Fallback) ---
     const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
-    
+
     // Load Browser Voices for Fallback
     useEffect(() => {
         const loadVoices = () => {
@@ -111,13 +111,23 @@ export const ChatbotModule: React.FC = () => {
 
         try {
             // 1. Attempt Groq API (High Quality)
-            const res = await fetch('/api/groq/audio/speech', {
+            const apiKey = import.meta.env.VITE_GROQ_API_KEY;
+            console.log("DEBUG: API Key loaded?", !!apiKey, "Length:", apiKey?.length);
+
+            if (!apiKey) {
+                throw new Error("Missing API Key. Check VITE_GROQ_API_KEY in .env");
+            }
+
+            const res = await fetch('https://api.groq.com/openai/v1/audio/speech', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
                 body: JSON.stringify({
                     model: "canopylabs/orpheus-v1-english",
                     input: text,
-                    voice: "diana", // Supported voices: autumn, diana, hannah, austin, daniel, troy
+                    voice: "diana",
                     response_format: "wav"
                 })
             });
@@ -127,25 +137,25 @@ export const ChatbotModule: React.FC = () => {
             const blob = await res.blob();
             const url = URL.createObjectURL(blob);
             const audio = new Audio(url);
-            
+
             audio.onended = () => setIsPlaying(false);
             audio.onerror = () => {
                 console.error("Audio playback error");
-                setIsPlaying(false); 
+                setIsPlaying(false);
             };
-            
+
             await audio.play();
 
         } catch (err) {
             console.warn("Falling back to Browser TTS:", err);
-            
+
             // 2. Fallback to Browser Native
             const utterance = new SpeechSynthesisUtterance(text);
             const preferred = voices.find(v => v.name.includes('Zira') || v.name.includes('Google US English') || v.name.includes('Samantha'));
             if (preferred) utterance.voice = preferred;
             utterance.pitch = 1.0;
             utterance.rate = 1.0;
-            
+
             utterance.onstart = () => setIsPlaying(true);
             utterance.onend = () => setIsPlaying(false);
             utterance.onerror = (e) => {
@@ -163,7 +173,7 @@ export const ChatbotModule: React.FC = () => {
 
     const generateResponse = async (userText: string) => {
         setIsWriting(true);
-        
+
         // Prepare Context (History + System)
         const history = messages.slice(-10).map(m => ({
             role: m.sender === 'user' ? 'user' : 'assistant',
@@ -174,15 +184,15 @@ export const ChatbotModule: React.FC = () => {
         const now = new Date();
         const upcomingLaunches = launches.filter((l: any) => new Date(l.net) > now).slice(0, 5);
         const upcomingEvents = events.filter((e: any) => new Date(e.date) >= now || e.date === 'Indefinite').slice(0, 5);
-        
+
         const launchContext = [
             "**UPCOMING LAUNCH MANIFEST (Next 5):**",
             ...upcomingLaunches.map((l: any) => `- MISSION: ${l.name} | TIME: ${l.net} | ID: ${l.id} | DESC: ${l.mission?.description || 'Classified'}`),
         ].join('\n');
 
         const eventContext = [
-             "**CELESTIAL EVENTS (Star Gazer Network):**",
-             ...upcomingEvents.map((e: any) => `- EVENT: ${e.title} | TYPE: ${e.type} | ID: ${e.id} | DATE: ${e.date}`)
+            "**CELESTIAL EVENTS (Star Gazer Network):**",
+            ...upcomingEvents.map((e: any) => `- EVENT: ${e.title} | TYPE: ${e.type} | ID: ${e.id} | DATE: ${e.date}`)
         ].join('\n');
 
         const systemContent = `
@@ -204,10 +214,20 @@ Example: "Locating the Perseids. [[NAVIGATE: /star-gazer?eventId=104]]"
 `;
 
         try {
-            // Call Groq via Vite Proxy (Auth injected by server)
-            const res = await fetch('/api/groq/chat/completions', {
+            // Call Groq Direct
+            const apiKey = import.meta.env.VITE_GROQ_API_KEY;
+            console.log("DEBUG: Chat API Key loaded?", !!apiKey);
+
+            if (!apiKey) {
+                throw new Error("Missing API Key. Check VITE_GROQ_API_KEY");
+            }
+
+            const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
                 body: JSON.stringify({
                     model: "llama-3.3-70b-versatile",
                     messages: [
@@ -239,24 +259,24 @@ Example: "Locating the Perseids. [[NAVIGATE: /star-gazer?eventId=104]]"
 
             // 2. Add Sign-off if missing (and not already short)
             if (botText.length > 50 && !botText.includes("Nova Out") && !botText.includes("Cadet")) {
-                 botText += " Over.";
+                botText += " Over.";
             }
 
             const botMsg: Message = { id: Date.now().toString(), text: botText, sender: 'bot', timestamp: new Date() };
             setMessages(prev => [...prev, botMsg]);
-            
+
             // 3. Speak & Navigate
             speak(botText);
             if (navPath) {
-                setTimeout(() => navigate(navPath), 1500); 
+                setTimeout(() => navigate(navPath), 1500);
             }
 
         } catch (err: any) {
-             console.error("Generation Failed:", err);
-             // Show actual error for debugging
-             const fallback = `⚠️ System Failure: ${err.message}`;
-             setMessages(prev => [...prev, { id: Date.now().toString(), text: fallback, sender: 'bot', timestamp: new Date() }]);
-             speak("System Failure. Check visual display.");
+            console.error("Generation Failed:", err);
+            // Show actual error for debugging
+            const fallback = `⚠️ System Failure: ${err.message}`;
+            setMessages(prev => [...prev, { id: Date.now().toString(), text: fallback, sender: 'bot', timestamp: new Date() }]);
+            speak("System Failure. Check visual display.");
         } finally {
             setIsWriting(false);
         }
@@ -269,19 +289,19 @@ Example: "Locating the Perseids. [[NAVIGATE: /star-gazer?eventId=104]]"
         setMessages(prev => [...prev, userMsg]);
         const textToProcess = inputText;
         setInputText('');
-        
+
         generateResponse(textToProcess);
     };
 
     return (
         <div className="absolute top-6 right-6 z-50 pointer-events-auto flex flex-col items-end font-sans">
-             {/* Toggle Button */}
-             <button 
+            {/* Toggle Button */}
+            <button
                 onClick={() => setIsOpen(!isOpen)}
-                className= {clsx(
+                className={clsx(
                     "w-12 h-12 flex items-center justify-center rounded-full border transition-all duration-300 shadow-[0_0_15px_rgba(0,243,255,0.1)]",
-                    isOpen 
-                        ? "bg-neon-cyan text-black border-neon-cyan" 
+                    isOpen
+                        ? "bg-neon-cyan text-black border-neon-cyan"
                         : "bg-black/60 backdrop-blur-md text-neon-cyan border-neon-cyan/30 hover:bg-neon-cyan/10 hover:scale-110"
                 )}
             >
@@ -294,11 +314,11 @@ Example: "Locating the Perseids. [[NAVIGATE: /star-gazer?eventId=104]]"
                     {/* Header */}
                     <div className="p-3 border-b border-white/10 flex justify-between items-center bg-white/5">
                         <div className="flex items-center space-x-2">
-                             <div className={clsx("w-2 h-2 rounded-full animate-pulse shadow-[0_0_8px_#22c55e]", isPlaying ? "bg-neon-cyan" : "bg-green-500")} />
-                             <span className="text-xs font-bold text-white font-orbitron tracking-widest">CAPT. NOVA</span>
+                            <div className={clsx("w-2 h-2 rounded-full animate-pulse shadow-[0_0_8px_#22c55e]", isPlaying ? "bg-neon-cyan" : "bg-green-500")} />
+                            <span className="text-xs font-bold text-white font-orbitron tracking-widest">CAPT. NOVA</span>
                         </div>
                         <div className="flex items-center space-x-1">
-                            <button 
+                            <button
                                 onClick={() => setIsVoiceEnabled(!isVoiceEnabled)}
                                 className={clsx(
                                     "p-1.5 rounded transition-colors",
@@ -310,7 +330,7 @@ Example: "Locating the Perseids. [[NAVIGATE: /star-gazer?eventId=104]]"
                             </button>
                         </div>
                     </div>
-                    
+
                     {/* Error Toast */}
                     {audioError && (
                         <div className="bg-red-500/20 border-b border-red-500/30 px-3 py-1 text-[10px] text-red-300 text-center font-mono">
@@ -324,8 +344,8 @@ Example: "Locating the Perseids. [[NAVIGATE: /star-gazer?eventId=104]]"
                             <div key={msg.id} className={clsx("flex", msg.sender === 'user' ? "justify-end" : "justify-start")}>
                                 <div className={clsx(
                                     "max-w-[85%] rounded-2xl px-3 py-2 text-sm leading-relaxed",
-                                    msg.sender === 'user' 
-                                        ? "bg-neon-cyan/20 text-white rounded-br-none border border-neon-cyan/30" 
+                                    msg.sender === 'user'
+                                        ? "bg-neon-cyan/20 text-white rounded-br-none border border-neon-cyan/30"
                                         : "bg-white/10 text-gray-200 rounded-bl-none border border-white/5"
                                 )}>
                                     {msg.text}
@@ -347,7 +367,7 @@ Example: "Locating the Perseids. [[NAVIGATE: /star-gazer?eventId=104]]"
                     {/* Input Area */}
                     <div className="p-3 border-t border-white/10 bg-black/40">
                         <div className="flex items-center bg-white/5 rounded-full px-1 py-1 border border-white/10 focus-within:border-neon-cyan/50 transition-colors">
-                            <input 
+                            <input
                                 ref={inputRef}
                                 className="bg-transparent border-none outline-none text-white text-xs px-3 py-2 flex-1 placeholder-white/30 font-mono"
                                 placeholder="Transmit message..."
@@ -355,7 +375,7 @@ Example: "Locating the Perseids. [[NAVIGATE: /star-gazer?eventId=104]]"
                                 onChange={(e) => setInputText(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                             />
-                            <button 
+                            <button
                                 onClick={handleSend}
                                 className="p-2 bg-neon-cyan text-black rounded-full hover:scale-105 transition-transform"
                             >

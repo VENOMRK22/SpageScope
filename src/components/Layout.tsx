@@ -7,7 +7,7 @@ import clsx from 'clsx';
 export const Layout: React.FC = () => {
     const [isSidebarOpen, setSidebarOpen] = useState(true);
     const location = useLocation();
-    const isFullScreenPage = location.pathname === '/star-gazer' || location.pathname === '/cosmic-weather' || location.pathname === '/mission-control';
+    const isFullScreenPage = location.pathname === '/star-gazer' || location.pathname === '/cosmic-weather' || location.pathname === '/mission-control' || location.pathname === '/satellite-savior' || location.pathname === '/deep-field';
 
     // Trigger Resize Event on Toggle to update Globe/Canvas widths
     useEffect(() => {
@@ -22,7 +22,7 @@ export const Layout: React.FC = () => {
 
     return (
         <div className="flex min-h-screen bg-transparent text-starlight-white font-sans overflow-hidden">
-            {!isWeatherPage && location.pathname !== '/mission-control' && <StarBackground />}
+            {!isWeatherPage && location.pathname !== '/mission-control' && location.pathname !== '/satellite-savior' && location.pathname !== '/deep-field' && <StarBackground />}
             <Sidebar isOpen={isSidebarOpen} setIsOpen={setSidebarOpen} />
 
             <main className={clsx(

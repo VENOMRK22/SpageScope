@@ -2,7 +2,7 @@ import React, { useContext } from 'react';
 import { useLocation, NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { DataContext } from '../context/DataContext';
-import { Globe, Telescope, Sun, Rocket, Satellite, GraduationCap, Menu, LogOut, User } from 'lucide-react';
+import { Globe, Telescope, Sun, Rocket, Satellite, GraduationCap, Menu, LogOut, User, Radio } from 'lucide-react';
 import clsx from 'clsx';
 
 const navItems = [
@@ -11,6 +11,7 @@ const navItems = [
     { path: '/cosmic-weather', label: 'Cosmic Weather', icon: Sun },
     { path: '/mission-control', label: 'Mission Control', icon: Rocket },
     { path: '/satellite-savior', label: 'Satellite Savior', icon: Satellite },
+    { path: '/deep-field', label: 'Deep Field', icon: Radio },
     { path: '/academy', label: 'The Academy', icon: GraduationCap },
 ];
 
@@ -28,7 +29,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
         <>
             {/* System Status - Sliding Text - HOME ONLY */}
             {!loading && location.pathname === '/' && (
-                 <div className={clsx(
+                <div className={clsx(
                     "fixed top-7 z-50 transition-all duration-300 ease-in-out text-[10px] text-neon-cyan/50 font-orbitron tracking-widest pointer-events-none whitespace-nowrap",
                     isOpen ? "left-[17rem]" : "left-16"
                 )}>

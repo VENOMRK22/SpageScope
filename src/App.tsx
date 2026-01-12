@@ -10,6 +10,9 @@ import { Launches } from './pages/Launches';
 import { DataProvider } from './context/DataContext';
 import { AuthProvider } from './context/AuthContext';
 
+import { Impact } from './pages/Impact'; // Import Impact Page
+import { Chronicles } from './pages/Chronicles'; // Import Chronicles Page
+
 function App() {
   return (
     <Router>
@@ -29,7 +32,8 @@ function App() {
               <Route path="star-gazer" element={<Events />} />
               <Route path="cosmic-weather" element={<Weather />} />
               <Route path="mission-control" element={<Launches />} />
-              <Route path="satellite-savior" element={<PlaceholderPage title="Satellite Savior" subtitle="Orbital Defense" />} />
+              <Route path="satellite-savior" element={<Impact />} />
+              <Route path="deep-field" element={<Chronicles />} />
               <Route path="academy" element={<PlaceholderPage title="The Academy" subtitle="Training Module" />} />
 
               {/* Legacy Routes */}
