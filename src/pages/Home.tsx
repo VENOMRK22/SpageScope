@@ -12,6 +12,7 @@ type ViewMode = 'clouds' | 'day-night' | 'population' | 'satellites';
 import { useOutletContext } from 'react-router-dom';
 import { DataContext } from '../context/DataContext';
 import { SearchModule } from '../components/SearchModule';
+import { ChatbotModule } from '../components/ChatbotModule';
 
 export const Home: React.FC = () => {
     const globeEl = useRef<GlobeMethods | undefined>(undefined);
@@ -254,6 +255,7 @@ export const Home: React.FC = () => {
         <div className="fixed inset-0 z-10 pointer-events-none">
             {/* Search Module - Home Page Only */}
             <SearchModule />
+            <ChatbotModule />
 
             {/* Loading Indicator */}
             {loading && (

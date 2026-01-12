@@ -499,14 +499,20 @@ export const Launches = () => {
     const [selectedLaunchId, setSelectedLaunchId] = useState<string | null>(null);
     const { setSidebarOpen } = useOutletContext<{ setSidebarOpen: React.Dispatch<React.SetStateAction<boolean>> }>();
     const location = useLocation();
+    
+    // Support Query Params for Deep Linking (e.g. ?launchId=...)
+    const queryParams = new URLSearchParams(location.search);
+    const queryLaunchId = queryParams.get('launchId');
 
-    // Handle Incoming State
+    // Handle Incoming State OR Query Params
     useEffect(() => {
         if (location.state?.launchId) {
             setSelectedLaunchId(location.state.launchId);
             window.history.replaceState({}, document.title); // Clean URL state
+        } else if (queryLaunchId) {
+            setSelectedLaunchId(queryLaunchId);
         }
-    }, [location.state]);
+    }, [location.state, queryLaunchId]);
 
     if (loading || !launches) return (
         <div className="flex h-screen items-center justify-center bg-black">
