@@ -2,7 +2,7 @@ import React, { useContext, useState, useEffect } from 'react';
 import { DataContext } from '../context/DataContext';
 import { Activity, BarChart3, Radio, Menu } from 'lucide-react';
 import clsx from 'clsx';
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext, useLocation } from 'react-router-dom';
 import { EventGlobe } from '../components/EventGlobe';
 import { MetricTooltip } from '../components/MetricTooltip';
 import { SPACE_METRICS } from '../data/spaceDefinitions';
@@ -11,13 +11,19 @@ export const Events: React.FC = () => {
     const { events, loading } = useContext(DataContext);
     const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
     const { setSidebarOpen } = useOutletContext<{ setSidebarOpen: React.Dispatch<React.SetStateAction<boolean>> }>();
+    const location = useLocation();
 
-    // Select first event by default
+    // Handle Incoming State or Default
     useEffect(() => {
-        if (!selectedEventId && events.length > 0) {
+        if (location.state?.eventId) {
+            setSelectedEventId(location.state.eventId);
+            // Optional: Clear state to avoid sticky selection on refresh if desired, 
+            // but for now keeping it simple is often better for UX.
+            window.history.replaceState({}, document.title); // Clean URL state
+        } else if (!selectedEventId && events.length > 0) {
             setSelectedEventId(events[0].id);
         }
-    }, [events, selectedEventId]);
+    }, [events, location.state]);
 
     const selectedEvent = events.find(e => e.id === selectedEventId) || events[0];
 
