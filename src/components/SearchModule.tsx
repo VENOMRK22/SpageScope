@@ -71,7 +71,7 @@ export const SearchModule: React.FC = () => {
     };
 
     return (
-        <div ref={containerRef} className="absolute top-6 right-6 z-50 pointer-events-auto flex flex-col items-end font-sans">
+        <div ref={containerRef} className="absolute top-6 right-24 z-50 pointer-events-auto flex flex-col items-end font-sans">
             {/* Search Bar Container */}
             <div className={clsx(
                 "flex items-center bg-black/60 backdrop-blur-md border border-neon-cyan/30 rounded-full transition-all duration-500 ease-out shadow-[0_0_15px_rgba(0,243,255,0.1)]",

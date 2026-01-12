@@ -13,17 +13,23 @@ export const Events: React.FC = () => {
     const { setSidebarOpen } = useOutletContext<{ setSidebarOpen: React.Dispatch<React.SetStateAction<boolean>> }>();
     const location = useLocation();
 
-    // Handle Incoming State or Default
+    // Handle Incoming State or Query Params
+    const queryParams = new URLSearchParams(location.search);
+    const queryEventId = queryParams.get('eventId');
+
     useEffect(() => {
         if (location.state?.eventId) {
             setSelectedEventId(location.state.eventId);
-            // Optional: Clear state to avoid sticky selection on refresh if desired, 
-            // but for now keeping it simple is often better for UX.
             window.history.replaceState({}, document.title); // Clean URL state
+        } else if (queryEventId) {
+             const parsedId = parseInt(queryEventId, 10);
+             if (!isNaN(parsedId)) {
+                 setSelectedEventId(parsedId);
+             }
         } else if (!selectedEventId && events.length > 0) {
             setSelectedEventId(events[0].id);
         }
-    }, [events, location.state]);
+    }, [events, location.state, queryEventId]);
 
     const selectedEvent = events.find(e => e.id === selectedEventId) || events[0];
 
