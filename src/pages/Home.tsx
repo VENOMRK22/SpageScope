@@ -11,6 +11,7 @@ type ViewMode = 'clouds' | 'day-night' | 'population' | 'satellites';
 
 import { useOutletContext } from 'react-router-dom';
 import { DataContext } from '../context/DataContext';
+import { SearchModule } from '../components/SearchModule';
 
 export const Home: React.FC = () => {
     const globeEl = useRef<GlobeMethods | undefined>(undefined);
@@ -251,12 +252,8 @@ export const Home: React.FC = () => {
 
     return (
         <div className="fixed inset-0 z-10 pointer-events-none">
-            {/* System Status Indicator (Data Layer Check) */}
-            {!isGlobalLoading && (
-                <div className="absolute top-4 right-4 z-50 text-[10px] text-neon-cyan/50 font-orbitron tracking-widest pointer-events-none text-right">
-                    SYSTEM STATUS: ONLINE
-                </div>
-            )}
+            {/* Search Module - Home Page Only */}
+            <SearchModule />
 
             {/* Loading Indicator */}
             {loading && (

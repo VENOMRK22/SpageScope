@@ -3,7 +3,7 @@ import { DataContext } from '../context/DataContext';
 import { motion } from 'framer-motion';
 import { Calendar, MapPin, Activity, CheckCircle, XCircle, Clock, AlertTriangle, Menu, BarChart3, ArrowLeft, Wind, Gauge, Satellite, Globe2, Layers, Cpu } from 'lucide-react';
 import clsx from 'clsx';
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext, useLocation } from 'react-router-dom';
 import { EventGlobe } from '../components/EventGlobe';
 // import { MetricTooltip } from '../components/MetricTooltip';
 import type { SkyEvent } from '../services/spaceData';
@@ -498,6 +498,15 @@ export const Launches = () => {
     const { launches, loading } = useContext(DataContext);
     const [selectedLaunchId, setSelectedLaunchId] = useState<string | null>(null);
     const { setSidebarOpen } = useOutletContext<{ setSidebarOpen: React.Dispatch<React.SetStateAction<boolean>> }>();
+    const location = useLocation();
+
+    // Handle Incoming State
+    useEffect(() => {
+        if (location.state?.launchId) {
+            setSelectedLaunchId(location.state.launchId);
+            window.history.replaceState({}, document.title); // Clean URL state
+        }
+    }, [location.state]);
 
     if (loading || !launches) return (
         <div className="flex h-screen items-center justify-center bg-black">

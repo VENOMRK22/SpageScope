@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { useLocation, NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { DataContext } from '../context/DataContext';
 import { Globe, Telescope, Sun, Rocket, Satellite, GraduationCap, Menu, LogOut, User } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -21,9 +22,19 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
     const location = useLocation();
     const { user, logout } = useAuth();
+    const { loading } = useContext(DataContext); // Access loading state
 
     return (
         <>
+            {/* System Status - Sliding Text - HOME ONLY */}
+            {!loading && location.pathname === '/' && (
+                 <div className={clsx(
+                    "fixed top-7 z-50 transition-all duration-300 ease-in-out text-[10px] text-neon-cyan/50 font-orbitron tracking-widest pointer-events-none whitespace-nowrap",
+                    isOpen ? "left-[17rem]" : "left-16"
+                )}>
+                    SYSTEM STATUS: ONLINE
+                </div>
+            )}
             {/* Closed State Toggle: Minimalist Floating Icon */}
             {/* Closed State Toggle: Minimalist Floating Icon */}
             {!isOpen && !['/mission-control', '/star-gazer', '/cosmic-weather'].includes(location.pathname) && (
