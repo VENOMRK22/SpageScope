@@ -32,4 +32,13 @@
   .nav-item-hover {
     @apply hover:bg-white/5 hover:text-white transition-all duration-300;
   }
+
+  /* Invisible Scrollbar Utility */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+  }
 }

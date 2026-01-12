@@ -1,17 +1,16 @@
 import React, { createContext, useState, useEffect } from 'react';
 import {
-    fetchSkyEvents,
-    fetchSolarData,
     fetchLaunches,
     type SkyEvent,
-    type SolarData,
     type Launch
 } from '../services/spaceData';
+import { getCachedEvents } from '../services/eventService';
+import { getSpaceWeather, type SpaceWeather } from '../services/weatherService';
 import type { ReactNode } from 'react';
 
 interface DataContextType {
     events: SkyEvent[];
-    weather: SolarData | null;
+    weather: SpaceWeather | null;
     launches: Launch[];
     loading: boolean;
 }
@@ -27,7 +26,7 @@ export const DataContext = createContext<DataContextType>(defaultContext);
 
 export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [events, setEvents] = useState<SkyEvent[]>([]);
-    const [weather, setWeather] = useState<SolarData | null>(null);
+    const [weather, setWeather] = useState<SpaceWeather | null>(null);
     const [launches, setLaunches] = useState<Launch[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -36,13 +35,13 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             try {
                 // Fetch all data in parallel
                 const [eventsData, weatherData, launchesData] = await Promise.all([
-                    fetchSkyEvents(),
-                    fetchSolarData(),
+                    getCachedEvents(),
+                    getSpaceWeather(),
                     fetchLaunches()
                 ]);
 
                 setEvents(eventsData);
-                setWeather(weatherData);
+                setWeather(weatherData); // Now strictly typed as SpaceWeather
                 setLaunches(launchesData);
             } catch (error) {
                 console.error("Failed to load space data:", error);

@@ -16,6 +16,7 @@
     "@types/three": "^0.182.0",
     "clsx": "^2.1.1",
     "d3-dsv": "^3.0.1",
+    "firebase": "^12.7.0",
     "framer-motion": "^12.25.0",
     "lucide-react": "^0.562.0",
     "react": "^19.2.0",

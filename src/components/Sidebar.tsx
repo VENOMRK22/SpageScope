@@ -1,6 +1,7 @@
 import React from 'react';
 import { useLocation, NavLink } from 'react-router-dom';
-import { Globe, Telescope, Sun, Rocket, Satellite, GraduationCap, Menu } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { Globe, Telescope, Sun, Rocket, Satellite, GraduationCap, Menu, LogOut, User } from 'lucide-react';
 import clsx from 'clsx';
 
 const navItems = [
@@ -19,6 +20,7 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
     const location = useLocation();
+    const { user, logout } = useAuth();
 
     return (
         <>
@@ -78,10 +80,26 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
                     })}
                 </nav>
 
+                {/* User Profile & Logout (Replaces Static Status) */}
                 <div className="absolute bottom-8 w-full px-6">
-                    <div className="glass-panel p-4 rounded-xl text-xs text-muted-gray text-center">
-                        <p>System Status: <span className="text-teal-400">ONLINE</span></p>
-                        <p className="mt-1">V 1.0.0 Alpha</p>
+                    <div className="glass-panel p-4 rounded-xl text-xs text-muted-gray border border-white/5">
+                        <div className="flex items-center space-x-3 mb-3">
+                            <div className="p-2 bg-neon-cyan/20 rounded-full">
+                                <User size={14} className="text-neon-cyan" />
+                            </div>
+                            <div className="overflow-hidden">
+                                <p className="text-[10px] uppercase font-bold text-white/70">OPERATOR</p>
+                                <p className="text-[10px] text-neon-cyan truncate">{user?.email || "UNKNOWN"}</p>
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={logout}
+                            className="w-full flex items-center justify-center space-x-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 py-2 rounded transition-colors border border-red-500/30"
+                        >
+                            <LogOut size={12} />
+                            <span className="font-bold tracking-wider">DISCONNECT</span>
+                        </button>
                     </div>
                 </div>
             </div>

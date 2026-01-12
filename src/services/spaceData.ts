@@ -3,7 +3,7 @@ export interface SkyEvent {
     id: number;
     title: string;
     date: string;
-    type: 'meteor' | 'eclipse' | 'conjunction' | 'comet';
+    type: 'meteor' | 'eclipse' | 'conjunction' | 'comet' | 'planet' | 'satellite' | 'aurora' | 'lunar' | 'terrestrial';
     visibility: string;
     description: string;
 
@@ -41,24 +41,6 @@ export interface SkyEvent {
     };
 }
 
-/* 
-   REAL API INTEGRATION STRATEGY (ADAPTER PATTERN)
-   -----------------------------------------------
-   When we switch to Real APIs, we map raw data to 'coverage' schema:
-   
-   1. METEOR SHOWERS (e.g., Perseids)
-      - API Input: Radiant Declination.
-      - Transformation: 
-        If Dec > 0 (North), Center = { lat: 90, lng: 0 }, Radius = 90.
-        If Dec < 0 (South), Center = { lat: -90, lng: 0 }, Radius = 90.
-        This covers the matching hemisphere.
-        "Best Viewing" is calculated separately based on User Location or Dark Sky DB.
-
-   2. LOCAL EVENTS (Eclipses)
-      - Center = Greatest Eclipse Point.
-      - Radius = Max Visibility Range.
-*/
-
 export interface SolarData {
     flrID: string;
     beginTime: string;
@@ -66,8 +48,13 @@ export interface SolarData {
     classType: string;
     sourceLocation: string;
     note: string;
-    imageUrl?: string;
+    imageUrl?: string; // Legacy
+    sunImageUrl: string; // New required field
+    kpIndex: number;
+    solarWindSpeed: number;
 }
+
+
 
 export interface Launch {
     id: string;
@@ -76,9 +63,40 @@ export interface Launch {
     net: string; // No Earlier Than date
     launch_service_provider: { name: string };
     rocket: { configuration: { name: string; image_url: string | null } };
-    pad: { name: string; location: { name: string } };
+    pad: {
+        name: string;
+        latitude?: string;
+        longitude?: string;
+        location: { name: string }
+    };
     mission: { description: string } | null;
 }
+
+// Coordinate Helper (Robust Fallback)
+const getLaunchCoordinates = (pad: Launch['pad']) => {
+    // 1. Try Direct API Data
+    if (pad.latitude && pad.longitude) {
+        return { lat: parseFloat(pad.latitude), lng: parseFloat(pad.longitude) };
+    }
+
+    // 2. Text-Based Fallback (Geocoding by Name)
+    const loc = (pad.location.name + " " + pad.name).toLowerCase();
+
+    if (loc.includes('sriharikota') || loc.includes('india') || loc.includes('satish')) return { lat: 13.72, lng: 80.23 }; // ISRO
+    if (loc.includes('kennedy') || loc.includes('cape canaveral') || loc.includes('florida')) return { lat: 28.57, lng: -80.64 }; // KSC/CCSFS
+    if (loc.includes('vandenberg') || loc.includes('california')) return { lat: 34.63, lng: -120.61 }; // VSFB
+    if (loc.includes('boca chica') || loc.includes('starbase')) return { lat: 25.99, lng: -97.15 }; // Starbase
+    if (loc.includes('baikonur') || loc.includes('kazakhstan')) return { lat: 45.96, lng: 63.30 }; // Baikonur
+    if (loc.includes('plesetsk') || loc.includes('russia')) return { lat: 62.92, lng: 40.57 }; // Plesetsk
+    if (loc.includes('french guiana') || loc.includes('kourou')) return { lat: 5.23, lng: -52.77 }; // ESA
+    if (loc.includes('china') || loc.includes('jiuquan')) return { lat: 40.96, lng: 100.29 }; // Jiuquan
+    if (loc.includes('xichang')) return { lat: 28.24, lng: 102.02 }; // Xichang
+    if (loc.includes('wenchang')) return { lat: 19.61, lng: 110.95 }; // Wenchang
+    if (loc.includes('japan') || loc.includes('tanegashima')) return { lat: 30.40, lng: 130.97 }; // JAXA
+    if (loc.includes('new zealand') || loc.includes('mahia')) return { lat: -39.26, lng: 177.86 }; // Rocket Lab
+
+    return { lat: 0, lng: 0 }; // Null Island (Unknown)
+};
 
 // Mock Data with SCIENTIFICALLY DECOUPLED CENTERS
 const MOCK_EVENTS: SkyEvent[] = [
@@ -95,9 +113,8 @@ const MOCK_EVENTS: SkyEvent[] = [
         bestViewing: { city: "Mauna Kea, Hawaii", coordinates: { lat: 19.8, lng: -155.4 } },
         coverage: {
             shape: 'ring',
-            // DECOUPLED: Center is North Pole for true "Hemisphere" coverage
             center: { lat: 90, lng: 0 },
-            radius: 80, // Covers down to Lat 10
+            radius: 80,
             color: 'rgba(0, 243, 255, 0.4)'
         },
         telemetry: [
@@ -127,7 +144,6 @@ const MOCK_EVENTS: SkyEvent[] = [
         bestViewing: { city: "Palma, Spain", coordinates: { lat: 39.5, lng: 2.6 } },
         coverage: {
             shape: 'ring',
-            // SYNCED: For narrow events, Center = Viewing
             center: { lat: 39.5, lng: 2.6 },
             radius: 35,
             color: 'rgba(255, 140, 0, 0.6)'
@@ -190,7 +206,6 @@ const MOCK_EVENTS: SkyEvent[] = [
         bestViewing: { city: "Sydney, Australia", coordinates: { lat: -33.8, lng: 151.2 } },
         coverage: {
             shape: 'ring',
-            // DECOUPLED: South Pole Center
             center: { lat: -90, lng: 0 },
             radius: 80,
             color: 'rgba(0, 255, 100, 0.4)'
@@ -208,14 +223,256 @@ const MOCK_EVENTS: SkyEvent[] = [
             bortleClass: "Class 8",
             limitingMag: "4.5"
         }
+    },
+    {
+        id: 5,
+        title: "Saturn at Opposition",
+        date: "2025-09-21",
+        type: 'planet',
+        visibility: "Global",
+        description: "Saturn will be at its closest to Earth and its face will be fully illuminated by the Sun. Seeliger Effect visible.",
+        viewingQuality: "Perfect",
+        magnitude: "0.4",
+        coordinates: { ra: "23h 14m", dec: "-08° 12'" },
+        bestViewing: { city: "Flagstaff, AZ", coordinates: { lat: 35.1, lng: -111.6 } },
+        coverage: {
+            shape: 'ring',
+            center: { lat: 35.1, lng: -111.6 },
+            radius: 180,
+            color: 'rgba(255, 220, 100, 0.3)'
+        },
+        telemetry: [
+            { label: "Ring Tilt", value: "4.2", unit: "deg" },
+            { label: "Dist to Earth", value: "8.76", unit: "AU" },
+            { label: "Ang. Diameter", value: "19.2", unit: "arcsec" },
+            { label: "Phase", value: "100", unit: "%" },
+            { label: "Seeliger Boost", value: "+0.4", unit: "mag" }
+        ],
+        conditions: {
+            seeing: "0.5\"",
+            skyBrightness: "21.6",
+            bortleClass: "Class 3",
+            limitingMag: "6.8"
+        }
+    },
+    {
+        id: 6,
+        title: "G4 Geomagnetic Storm",
+        date: "2025-03-20",
+        type: 'aurora',
+        visibility: "High Latitudes",
+        description: "Severe geomagnetic storm predicted following a major coronal mass ejection (CME).",
+        viewingQuality: "Excellent",
+        magnitude: "Kp 8.3",
+        coordinates: { ra: "N/A", dec: "N/A" },
+        bestViewing: { city: "Tromsø, Norway", coordinates: { lat: 69.6, lng: 18.9 } },
+        coverage: {
+            shape: 'ring',
+            center: { lat: 90, lng: 0 },
+            radius: 40, // Expanded auroral oval
+            color: 'rgba(50, 255, 50, 0.5)'
+        },
+        telemetry: [
+            { label: "Kp Index", value: "8.3", unit: "" },
+            { label: "Solar Wind Speed", value: "750", unit: "km/s" },
+            { label: "Bz Component", value: "-15", unit: "nT" },
+            { label: "Density", value: "12", unit: "p/cm3" },
+            { label: "Hemispheric Power", value: "95", unit: "GW" }
+        ],
+        conditions: {
+            seeing: "2.1\"",
+            skyBrightness: "20.1",
+            bortleClass: "Class 4",
+            limitingMag: "5.2"
+        }
+    },
+    {
+        id: 7,
+        title: "ISS Lunar Transit",
+        date: "2025-06-15",
+        type: 'satellite',
+        visibility: "Narrow Path (Europe)",
+        description: "The International Space Station will transit across the face of the Moon for observers in central Europe.",
+        viewingQuality: "Good",
+        magnitude: "-3.5",
+        coordinates: { ra: "18h 45m", dec: "-24° 15'" },
+        bestViewing: { city: "Berlin, Germany", coordinates: { lat: 52.5, lng: 13.4 } },
+        coverage: {
+            shape: 'ring',
+            center: { lat: 52.5, lng: 13.4 },
+            radius: 5, // Very narrow visibility
+            color: 'rgba(255, 255, 255, 0.6)'
+        },
+        telemetry: [
+            { label: "Transit Duration", value: "0.82", unit: "s" },
+            { label: "ISS Ang Size", value: "44", unit: "arcsec" },
+            { label: "Moon Phase", value: "88", unit: "%" },
+            { label: "Range", value: "480", unit: "km" },
+            { label: "Relative Vel", value: "7.6", unit: "km/s" }
+        ],
+        conditions: {
+            seeing: "1.1\"",
+            skyBrightness: "17.0",
+            bortleClass: "Class 8",
+            limitingMag: "4.0"
+        }
+    },
+    {
+        id: 8,
+        title: "Super Blue Moon",
+        date: "2025-10-31",
+        type: 'lunar',
+        visibility: "Global",
+        description: "A rare Super Blue Moon occurring on Halloween. The Moon will appear 14% larger and 30% brighter.",
+        viewingQuality: "Perfect",
+        magnitude: "-12.8",
+        coordinates: { ra: "02h 30m", dec: "+14° 20'" },
+        bestViewing: { city: "New York, USA", coordinates: { lat: 40.7, lng: -74.0 } },
+        coverage: {
+            shape: 'ring',
+            center: { lat: 40.7, lng: -74.0 },
+            radius: 170, // Global
+            color: 'rgba(200, 200, 255, 0.4)'
+        },
+        telemetry: [
+            { label: "Distance", value: "356,800", unit: "km" },
+            { label: "Illumination", value: "100", unit: "%" },
+            { label: "Ang. Diameter", value: "33.5", unit: "arcmin" },
+            { label: "Libration Lat", value: "+4.2", unit: "deg" },
+            { label: "Age", value: "14.8", unit: "days" }
+        ],
+        conditions: {
+            seeing: "1.8\"",
+            skyBrightness: "15.0", // Moon washes out sky
+            bortleClass: "Class 9",
+            limitingMag: "3.5"
+        }
+    },
+    {
+        id: 9,
+        title: "Vela Supernova Remnant",
+        date: "Indefinite",
+        type: 'conjunction',
+        visibility: "Southern Hemisphere",
+        description: "Deep sky imaging opportunity for the Vela SNR. Best visibility window opens this week.",
+        viewingQuality: "Excellent",
+        magnitude: "N/A",
+        coordinates: { ra: "08h 35m", dec: "-45° 10'" },
+        bestViewing: { city: "Coonabarabran, AUS", coordinates: { lat: -31.3, lng: 149.3 } },
+        coverage: {
+            shape: 'ring',
+            center: { lat: -90, lng: 0 },
+            radius: 50,
+            color: 'rgba(255, 100, 100, 0.3)'
+        },
+        telemetry: [
+            { label: "Surface Brightness", value: "24.5", unit: "mag" },
+            { label: "O-III Strength", value: "High", unit: "" },
+            { label: "H-Alpha Flux", value: "Medium", unit: "" },
+            { label: "Apparent Size", value: "480", unit: "arcmin" },
+            { label: "Distance", value: "800", unit: "ly" }
+        ],
+        conditions: {
+            seeing: "0.7\"",
+            skyBrightness: "21.8",
+            bortleClass: "Class 1",
+            limitingMag: "7.2"
+        }
     }
 ];
 
 // Named Exports
 export const fetchSkyEvents = async (): Promise<SkyEvent[]> => {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    return MOCK_EVENTS;
+    // 1. Get Mock Events
+    const mockEvents = [...MOCK_EVENTS];
+
+    // 2. Try to fetch Real Events (Launches mapped to SkyEvents)
+    try {
+        const realEvents = await fetchRealSkyEvents();
+        return [...mockEvents, ...realEvents];
+    } catch (e) {
+        console.warn("Failed to fetch real events, falling back to mock only", e);
+        return mockEvents;
+    }
 };
+
+// Caching Config (Bumped to v2 to force coordinate update)
+const EVENTS_CACHE_KEY = 'space_scope_events_cache_v2';
+const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 Hours
+
+// ADAPTER: Real Launch Data -> SkyEvent Interface
+export const fetchRealSkyEvents = async (): Promise<SkyEvent[]> => {
+    // 1. Check Use-Case Cache (Preserves all metrics/units exactly as generated)
+    try {
+        const cachedRaw = localStorage.getItem(EVENTS_CACHE_KEY);
+        if (cachedRaw) {
+            const { timestamp, data } = JSON.parse(cachedRaw);
+            const age = Date.now() - timestamp;
+            if (age < CACHE_DURATION) {
+                console.log(`[Cache Hit] Serving Full Event Logic from Storage (${(age / 1000 / 60).toFixed(1)} mins old) ⚡`);
+                return data;
+            }
+        }
+    } catch (e) {
+        console.warn("Cache read error", e);
+    }
+
+    try {
+        // 2. Fetch Raw API
+        const launches = await fetchRealLaunches();
+
+        // 3. Adapter Logic (Generate Metrics/Units)
+        const adaptedEvents = launches.map((launch, index) => {
+            const coords = getLaunchCoordinates(launch.pad);
+
+            return {
+                id: 1000 + index,
+                title: `[LIVE] ${launch.name}`,
+                date: launch.net,
+                type: 'satellite',
+                visibility: "Global Stream",
+                description: launch.mission?.description || `Live launch of ${launch.name} from ${launch.pad.location.name}.`,
+                viewingQuality: "Good",
+                magnitude: "N/A",
+                coordinates: { ra: "N/A", dec: "N/A" },
+                bestViewing: {
+                    city: launch.pad.location.name.split(',')[0],
+                    coordinates: coords
+                },
+                coverage: {
+                    shape: 'ring',
+                    center: coords,
+                    radius: 10,
+                    color: 'rgba(255, 100, 50, 0.5)'
+                },
+                telemetry: [ // <--- THESE ARE THE UNITS/METRICS USER WANTS STORED
+                    { label: "Provider", value: launch.launch_service_provider.name, unit: "ORG" },
+                    { label: "Rocket", value: launch.rocket.configuration.name, unit: "TYPE" },
+                    { label: "Status", value: launch.status.name, unit: "STAT" },
+                    { label: "Window", value: new Date(launch.net).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), unit: "T-0" }
+                ],
+                conditions: {
+                    seeing: "1.0\"",
+                    skyBrightness: "N/A",
+                    bortleClass: "Class 4",
+                    limitingMag: "6.0"
+                }
+            } as SkyEvent;
+        });
+
+        // 4. Save EXACT Result to Cache
+        localStorage.setItem(EVENTS_CACHE_KEY, JSON.stringify({
+            timestamp: Date.now(),
+            data: adaptedEvents
+        }));
+
+        return adaptedEvents;
+
+    } catch (error) {
+        console.error("Error adapting real events:", error);
+        return [];
+    }
+}
 
 export const fetchSolarData = async (): Promise<SolarData | null> => {
     try {
@@ -223,10 +480,13 @@ export const fetchSolarData = async (): Promise<SolarData | null> => {
             flrID: "FLR-2025-001",
             beginTime: new Date().toISOString(),
             peakTime: new Date(Date.now() + 3600000).toISOString(),
-            classType: "M1.2",
-            sourceLocation: "N15E20",
-            note: "Moderate solar flare detected.",
-            imageUrl: "https://svs.gsfc.nasa.gov/vis/a010000/a011300/a011353/SDO_Year5_304.jpg"
+            classType: "X2.1", // Upgraded to X-Class for demo excitement
+            sourceLocation: "AR3290",
+            note: "Strong radio blackout in progress.",
+            imageUrl: "https://svs.gsfc.nasa.gov/vis/a010000/a011300/a011353/SDO_Year5_304.jpg",
+            sunImageUrl: "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_0304.jpg",
+            kpIndex: 7.2,
+            solarWindSpeed: 540
         };
     } catch (error) {
         console.error("Error in mock solar fetch", error);
@@ -234,18 +494,53 @@ export const fetchSolarData = async (): Promise<SolarData | null> => {
     }
 };
 
-export const fetchLaunches = async (): Promise<Launch[]> => {
+export const fetchRealLaunches = async (): Promise<Launch[]> => {
+    try {
+        // Raw Fetch only - Caching moved up to Adapter level
+        console.log("Fetching fresh Launch data from API... 📡");
+        const response = await fetch('https://lldev.thespacedevs.com/2.2.0/launch/upcoming/?limit=5');
+        if (!response.ok) throw new Error('Network response was not ok');
+        const data = await response.json();
+        return data.results;
+    } catch (error) {
+        console.error("Error fetching real launches:", error);
+        return fetchLaunchesMock();
+    }
+};
+
+export const fetchLaunchesMock = async (): Promise<Launch[]> => {
+    // Return original mock data as fallback
     try {
         return [
             {
                 id: "1",
                 name: "Starship Flight 7",
                 status: { name: "Go for Launch", abbrev: "Go" },
-                net: "2025-03-15T12:00:00Z",
+                net: "2025-06-15T12:00:00Z",
                 launch_service_provider: { name: "SpaceX" },
                 rocket: { configuration: { name: "Starship", image_url: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/df/Starship_S24_on_OLM_2023.jpg/800px-Starship_S24_on_OLM_2023.jpg" } },
                 pad: { name: "Orbital Launch Mount A", location: { name: "Starbase, TX" } },
-                mission: { description: "Orbital test flight of Starship launch vehicle." }
+                mission: { description: "Orbital test flight of Starship launch vehicle attempting tower catch." }
+            },
+            {
+                id: "2",
+                name: "Artemis III",
+                status: { name: "TBC", abbrev: "TBC" },
+                net: "2026-09-01T14:30:00Z",
+                launch_service_provider: { name: "NASA" },
+                rocket: { configuration: { name: "SLS Block 1B", image_url: "https://www.nasa.gov/sites/default/files/styles/full_width/public/thumbnails/image/artemis_i_launch_night.jpg" } },
+                pad: { name: "LC-39B", location: { name: "Kennedy Space Center, FL" } },
+                mission: { description: "First crewed lunar landing since Apollo 17." }
+            },
+            {
+                id: "3",
+                name: "Electron | 'Love At First Insight'",
+                status: { name: "Scheduled", abbrev: "Go" },
+                net: "2025-05-20T09:15:00Z",
+                launch_service_provider: { name: "Rocket Lab" },
+                rocket: { configuration: { name: "Electron", image_url: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/Electron_launch_vehicle_on_pad_LC-1.jpg/600px-Electron_launch_vehicle_on_pad_LC-1.jpg" } },
+                pad: { name: "LC-1A", location: { name: "Mahia Peninsula, NZ" } },
+                mission: { description: "Deployment of Earth observation satellites for BlackSky." }
             }
         ];
     } catch (error) {
@@ -253,3 +548,6 @@ export const fetchLaunches = async (): Promise<Launch[]> => {
         return [];
     }
 };
+
+// Use this for the dedicated Launches widget if needed, or mapped events above.
+export const fetchLaunches = fetchRealLaunches;

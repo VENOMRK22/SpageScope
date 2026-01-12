@@ -25,7 +25,7 @@ export const Events: React.FC = () => {
 
     return (
         // Integrated Layout (No longer fixed overlay)
-        <div className="w-full h-full min-h-screen bg-[#08090C] text-gray-300 font-sans flex flex-col">
+        <div className="w-full h-full bg-[#08090C] text-gray-300 font-sans flex flex-col">
 
             {/* Top Bar */}
             <div className="h-14 border-b border-white/10 bg-[#0B0C10] flex items-center px-4 justify-between shrink-0">
@@ -57,43 +57,86 @@ export const Events: React.FC = () => {
                         </div>
                         <div className="text-[10px] text-gray-500">REAL-TIME MONITORING</div>
                     </div>
-                    <div className="overflow-y-auto flex-1 p-2 space-y-1">
-                        {events.map((event) => (
-                            <button
-                                key={event.id}
-                                onClick={() => setSelectedEventId(event.id)}
-                                className={clsx(
-                                    "w-full text-left p-3 rounded border transition-all duration-300 group relative overflow-hidden",
-                                    selectedEventId === event.id
-                                        ? "bg-white/5 border-neon-cyan/50 text-white"
-                                        : "bg-transparent border-transparent hover:bg-white/5 text-gray-400"
-                                )}
-                            >
-                                {selectedEventId === event.id && (
-                                    <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-neon-cyan shadow-[0_0_10px_#00f3ff]" />
-                                )}
-                                <div className="text-xs font-bold font-orbitron truncate pr-2 group-hover:text-neon-cyan transition-colors">
-                                    {event.title.toUpperCase()}
-                                </div>
-                                <div className="flex justify-between items-center mt-1">
-                                    <span className="text-[10px] font-mono opacity-70">{event.date}</span>
-                                    <span className={clsx(
-                                        "text-[9px] px-1.5 py-0.5 rounded font-mono font-bold",
-                                        event.type === 'meteor' ? "bg-purple-500/10 text-purple-400" :
-                                            event.type === 'eclipse' ? "bg-amber-500/10 text-amber-400" :
-                                                event.type === 'conjunction' ? "bg-blue-500/10 text-blue-400" : "bg-emerald-500/10 text-emerald-400"
-                                    )}>
-                                        {event.type.toUpperCase()}
-                                    </span>
-                                </div>
-                            </button>
-                        ))}
+
+                    <div className="overflow-y-auto flex-1 p-2 space-y-4">
+                        {/* UPCOMING SECTION */}
+                        <div>
+                            <div className="px-2 mb-2 text-[10px] font-bold text-neon-cyan/70 uppercase tracking-widest sticky top-0 bg-[#08090C]/90 backdrop-blur z-10 py-1">Upcoming</div>
+                            <div className="space-y-1">
+                                {events.filter(e => new Date(e.date) >= new Date()).concat(events.filter(e => e.date === 'Indefinite')) // Keep Indefinite in upcoming
+                                    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                                    .map((event) => (
+                                        <button
+                                            key={event.id}
+                                            onClick={() => setSelectedEventId(event.id)}
+                                            className={clsx(
+                                                "w-full text-left p-3 rounded border transition-all duration-300 group relative overflow-hidden",
+                                                selectedEventId === event.id
+                                                    ? "bg-white/5 border-neon-cyan/50 text-white"
+                                                    : "bg-transparent border-transparent hover:bg-white/5 text-gray-400"
+                                            )}
+                                        >
+                                            {selectedEventId === event.id && (
+                                                <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-neon-cyan shadow-[0_0_10px_#00f3ff]" />
+                                            )}
+                                            <div className="text-xs font-bold font-orbitron truncate pr-2 group-hover:text-neon-cyan transition-colors">
+                                                {event.title.toUpperCase()}
+                                            </div>
+                                            <div className="flex justify-between items-center mt-1">
+                                                <span className="text-[10px] font-mono opacity-70">{new Date(event.date).toLocaleDateString()}</span>
+                                                <span className={clsx(
+                                                    "text-[9px] px-1.5 py-0.5 rounded font-mono font-bold",
+                                                    event.type === 'meteor' ? "bg-purple-500/10 text-purple-400" :
+                                                        event.type === 'eclipse' ? "bg-amber-500/10 text-amber-400" :
+                                                            event.type === 'conjunction' ? "bg-blue-500/10 text-blue-400" : "bg-emerald-500/10 text-emerald-400"
+                                                )}>
+                                                    {event.type.toUpperCase()}
+                                                </span>
+                                            </div>
+                                        </button>
+                                    ))}
+                            </div>
+                        </div>
+
+                        {/* PAST SECTION */}
+                        <div>
+                            <div className="px-2 mb-2 text-[10px] font-bold text-gray-600 uppercase tracking-widest sticky top-0 bg-[#08090C]/90 backdrop-blur z-10 py-1 border-t border-white/5 pt-2">Past Events</div>
+                            <div className="space-y-1 opacity-70 grayscale-[0.5] hover:grayscale-0 transition-all duration-500">
+                                {events.filter(e => new Date(e.date) < new Date() && e.date !== 'Indefinite')
+                                    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()) // Most recent past first
+                                    .map((event) => (
+                                        <button
+                                            key={event.id}
+                                            onClick={() => setSelectedEventId(event.id)}
+                                            className={clsx(
+                                                "w-full text-left p-3 rounded border transition-all duration-300 group relative overflow-hidden",
+                                                selectedEventId === event.id
+                                                    ? "bg-white/5 border-white/20 text-white"
+                                                    : "bg-transparent border-transparent hover:bg-white/5 text-gray-500"
+                                            )}
+                                        >
+                                            {selectedEventId === event.id && (
+                                                <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-white/50" />
+                                            )}
+                                            <div className="text-xs font-bold font-orbitron truncate pr-2 group-hover:text-white transition-colors">
+                                                {event.title.toUpperCase()}
+                                            </div>
+                                            <div className="flex justify-between items-center mt-1">
+                                                <span className="text-[10px] font-mono opacity-70">{new Date(event.date).toLocaleDateString()}</span>
+                                                <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-white/5 text-gray-400 border border-white/5">
+                                                    ARCHIVED
+                                                </span>
+                                            </div>
+                                        </button>
+                                    ))}
+                            </div>
+                        </div>
                     </div>
                 </div>
 
                 {/* --- COL 2: MAIN MAP VISUALIZATION (Flexible) --- */}
                 <div className="flex-1 relative flex flex-col min-w-0 bg-black/20">
-                    <div className="absolute inset-0 z-0 -translate-y-16">
+                    <div className="absolute inset-0 z-0">
                         {/* Pass key to force remount on event change for clean transition */}
                         <EventGlobe key={selectedEvent.id} event={selectedEvent} />
                     </div>
@@ -115,9 +158,6 @@ export const Events: React.FC = () => {
                                         VISIBILITY: {selectedEvent.visibility.toUpperCase()}
                                     </div>
                                 </div>
-                                <p className="text-sm text-gray-300 max-w-xl font-sans drop-shadow-md leading-relaxed">
-                                    {selectedEvent.description}
-                                </p>
                             </div>
                         </div>
                     </div>
@@ -129,7 +169,7 @@ export const Events: React.FC = () => {
                 </div>
 
                 {/* --- COL 3: RIGHT ANALYSIS (450px) --- */}
-                <div className="w-[450px] bg-[#08090C] border-l border-white/10 flex flex-col shrink-0">
+                <div className="w-[450px] h-full max-h-full bg-[#08090C] border-l border-white/10 flex flex-col shrink-0">
                     <div className="p-4 border-b border-white/10 bg-white/5">
                         <div className="flex items-center space-x-2 text-neon-cyan mb-1">
                             <BarChart3 size={14} />
@@ -138,7 +178,13 @@ export const Events: React.FC = () => {
                         <div className="text-[10px] text-gray-500">REAL-TIME EVENT METRICS</div>
                     </div>
 
-                    <div className="p-4 space-y-6 overflow-y-auto">
+                    <div className="flex-1 min-h-0 p-4 space-y-6 overflow-y-auto no-scrollbar">
+
+                        {/* Mission Brief (Moved from Center) */}
+                        <div className="text-sm text-gray-300 leading-relaxed border-b border-white/10 pb-4">
+                            <div className="text-[10px] text-gray-500 uppercase font-bold mb-2">Mission Brief</div>
+                            {selectedEvent.description}
+                        </div>
 
                         {/* Dynamic Telemetry Data - 2 Column Grid */}
                         <div className="grid grid-cols-2 gap-3">
@@ -202,15 +248,24 @@ export const Events: React.FC = () => {
                                         <div className="text-[10px] uppercase tracking-widest text-gray-500 font-bold font-mono group-hover:text-neon-cyan transition-colors">QUALITY</div>
                                     </MetricTooltip>
                                     <div className="flex space-x-0.5">
-                                        {[1, 2, 3, 4, 5].map((s) => (
-                                            <div
-                                                key={s}
-                                                className={clsx(
-                                                    "w-1 h-3 rounded-full transition-all duration-300",
-                                                    s <= 4 ? "bg-neon-cyan shadow-[0_0_5px_rgba(0,243,255,0.8)]" : "bg-gray-800"
-                                                )}
-                                            />
-                                        ))}
+                                        {[1, 2, 3, 4, 5].map((s) => {
+                                            // Dynamic Score Calculation
+                                            const q = (selectedEvent.viewingQuality || "Good").toLowerCase();
+                                            const score = q.includes('perfect') || q.includes('excellent') ? 5 :
+                                                q.includes('good') ? 4 :
+                                                    q.includes('fair') ? 3 :
+                                                        q.includes('poor') ? 2 : 1;
+
+                                            return (
+                                                <div
+                                                    key={s}
+                                                    className={clsx(
+                                                        "w-1 h-3 rounded-full transition-all duration-300",
+                                                        s <= score ? "bg-neon-cyan shadow-[0_0_5px_rgba(0,243,255,0.8)]" : "bg-gray-800"
+                                                    )}
+                                                />
+                                            );
+                                        })}
                                     </div>
                                 </div>
                                 <div className="text-xl font-bold text-white font-orbitron">{selectedEvent.viewingQuality || "Excellent"}</div>

@@ -150,13 +150,33 @@ export const SPACE_METRICS: Record<string, SpaceTerm> = {
         simple: "Faintest star visible to the naked eye at this location."
     },
 
-    // Globe HUD
-    rng: {
-        label: "Range (RNG)",
-        simple: "The diameter of the visibility zone on Earth's surface."
+    // Event Specific - Aliases & New Telemetry
+    zhr: {
+        label: "Zenithal Hourly Rate",
+        simple: "Estimated number of meteors you can see per hour under perfect, dark skies."
     },
-    coords: {
-        label: "Coordinates",
-        simple: "Exact GPS location of the best viewing spot."
+    separation: {
+        label: "Angular Separation",
+        simple: "The apparent visual distance between two objects in the sky."
+    },
+    "ring tilt": {
+        label: "Ring Tilt",
+        simple: "The angle of Saturn's rings as seen from Earth (0° = Invisible/Edge-on)."
+    },
+    totality: {
+        label: "Totality Duration",
+        simple: "High-value window where the Sun is completely covered by the Moon."
+    },
+    perihelion: {
+        label: "Perihelion Distance",
+        simple: "The point in an orbit closest to the Sun (in Astronomical Units)."
+    },
+    "kp index": {
+        label: "Planetary K-index",
+        simple: "Global geomagnetic storm index (0-9). 5+ is a storm, 9 is extreme."
+    },
+    "dst index": {
+        label: "Dst Index",
+        simple: "Disturbance Storm Time. Negative numbers mean stronger magnetic storms."
     }
 };

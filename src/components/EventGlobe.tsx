@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useMemo, useState } from 'react';
 import Globe from 'react-globe.gl';
 import type { GlobeMethods } from 'react-globe.gl';
 import type { SkyEvent } from '../services/spaceData';
-import { Loader2, Crosshair } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import * as THREE from 'three';
 
 interface EventGlobeProps {
@@ -156,8 +156,8 @@ export const EventGlobe: React.FC<EventGlobeProps> = ({ event }) => {
         return el;
     };
 
-    // Calculate Coverage Stats
-    const coverageKm = activeEvent.coverage ? Math.round(activeEvent.coverage.radius * 111) : 0;
+    // Calculate Coverage Stats Removed
+    // const coverageKm = activeEvent.coverage ? Math.round(activeEvent.coverage.radius * 111) : 0;
 
     return (
         <div ref={containerRef} className="w-full h-full relative bg-transparent">
@@ -172,27 +172,7 @@ export const EventGlobe: React.FC<EventGlobeProps> = ({ event }) => {
                 </div>
             )}
 
-            {/* REGION LABEL OVERLAY (Bottom Left) */}
-            {!isResetting && activeEvent.coverage && (
-                <div className="absolute bottom-4 left-4 z-20 pointer-events-none">
-                    <div className="flex items-center space-x-2 text-neon-cyan mb-1">
-                        <Crosshair size={14} className="animate-pulse" />
-                        <span className="text-[10px] font-bold tracking-widest uppercase opacity-70">TARGET ACQUIRED</span>
-                    </div>
-                    <div className="bg-black/80 border-l-2 border-neon-cyan p-2 pl-3 backdrop-blur-sm">
-                        <div className="text-sm font-bold text-white font-mono leading-none tracking-wide text-neon-cyan uppercase mb-1">{activeEvent.bestViewing?.city || "UNKNOWN SECTOR"}</div>
-                        <div className="text-[9px] text-gray-400 font-mono">
-                            VISIBILITY: {activeEvent.visibility.toUpperCase()}
-                        </div>
-                        <div className="text-[9px] text-neon-cyan/70 font-mono mt-1">
-                            COORDS: {activeEvent.coverage.center.lat.toFixed(2)}°N, {activeEvent.coverage.center.lng.toFixed(2)}°E
-                        </div>
-                        <div className="text-[9px] text-white/50 font-mono mt-0.5">
-                            RNG: ~{coverageKm.toLocaleString()} KM
-                        </div>
-                    </div>
-                </div>
-            )}
+            {/* REGION LABEL OVERLAY REMOVED PER USER REQUEST */}
 
             {/* GLOBE INSTANCE */}
             {!isResetting && dimensions.width > 0 && (

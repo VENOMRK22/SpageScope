@@ -7,7 +7,7 @@ import clsx from 'clsx';
 export const Layout: React.FC = () => {
     const [isSidebarOpen, setSidebarOpen] = useState(true);
     const location = useLocation();
-    const isFullScreenPage = location.pathname === '/star-gazer';
+    const isFullScreenPage = location.pathname === '/star-gazer' || location.pathname === '/cosmic-weather';
 
     // Trigger Resize Event on Toggle to update Globe/Canvas widths
     useEffect(() => {
@@ -18,13 +18,17 @@ export const Layout: React.FC = () => {
         return () => { clearTimeout(t1); clearTimeout(t2); };
     }, [isSidebarOpen]);
 
+    const isWeatherPage = location.pathname === '/cosmic-weather';
+
     return (
         <div className="flex min-h-screen bg-transparent text-starlight-white font-sans overflow-hidden">
-            <StarBackground />
+            {!isWeatherPage && <StarBackground />}
             <Sidebar isOpen={isSidebarOpen} setIsOpen={setSidebarOpen} />
 
             <main className={clsx(
-                "flex-1 relative overflow-y-auto min-h-screen z-10 transition-all duration-300",
+                "flex-1 relative z-10 transition-all duration-300 flex flex-col", // Added flex-col to support h-full children
+                // Conditional Scroll: HIDDEN for full-screen apps (let inner components scroll), AUTO for normal pages
+                isFullScreenPage ? "h-screen overflow-hidden" : "min-h-screen overflow-y-auto",
                 isSidebarOpen ? "lg:ml-64" : "lg:ml-0",
                 // Conditional Padding: Remove padding for full-screen pages
                 isFullScreenPage ? "p-0" : "p-8"
