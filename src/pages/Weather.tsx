@@ -1,9 +1,11 @@
-import { useContext, useState, useRef } from 'react';
+import { useContext, useState, useRef, useEffect } from 'react';
 import { DataContext } from '../context/DataContext';
-import { Sun, Wind, Activity, Radio, Zap, AlertTriangle, RefreshCw, Info, Magnet, X } from 'lucide-react';
+import { Sun, Wind, Activity, Radio, Zap, AlertTriangle, RefreshCw, Info, Magnet, X, Volume2, VolumeX, Menu } from 'lucide-react';
 import clsx from 'clsx';
 import type { SpaceWeather } from '../services/weatherService';
 import { AnimatePresence, motion } from 'framer-motion';
+import * as Tone from 'tone';
+import { useOutletContext } from 'react-router-dom';
 
 // --- FLARE CLASS DATA ---
 const FLARE_CLASSES = [
@@ -402,9 +404,86 @@ export const Weather = () => {
     // Tooltip State lifted to Page Level
     const [hoveredMetric, setHoveredMetric] = useState<keyof typeof METRICS | null>(null);
     const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
+    const { setSidebarOpen } = useOutletContext<{ setSidebarOpen: React.Dispatch<React.SetStateAction<boolean>> }>();
 
     // Deep Dive State
     const [showFlareModal, setShowFlareModal] = useState(false);
+
+    // --- AUDIO SONIFICATION ENGINE ---
+    const [isAudioActive, setIsAudioActive] = useState(false);
+    const oscRef = useRef<Tone.Oscillator | null>(null);
+    const distortionRef = useRef<Tone.Distortion | null>(null);
+    const reverbRef = useRef<Tone.Reverb | null>(null);
+
+    // Deriving storm status for audio texture
+    // If context is available, we check if Kp >= 5
+    const isStorm = context?.weather?.geomagnetic.kp.current ? context.weather.geomagnetic.kp.current >= 5 : false;
+    const windSpeed = context?.weather?.solar.wind.speed || 300;
+
+    const toggleAudio = async () => {
+        if (!isAudioActive) {
+            // ACTIVATE
+            await Tone.start();
+            console.log("🔊 COSMIC DJ: Audio Context Started");
+
+            // Create Audio Chain
+            // Osc -> Distortion -> Reverb -> Destination
+            const reverb = new Tone.Reverb(3).toDestination(); // Large space reverb
+            await reverb.generate(); // Pre-calculate impulse
+
+            const dist = new Tone.Distortion(0).connect(reverb);
+            const osc = new Tone.Oscillator(200, "sine").connect(dist);
+
+            osc.start();
+
+            // Save Refs
+            oscRef.current = osc;
+            distortionRef.current = dist;
+            reverbRef.current = reverb;
+
+            setIsAudioActive(true);
+        } else {
+            // DEACTIVATE
+            oscRef.current?.stop();
+            oscRef.current?.dispose();
+            distortionRef.current?.dispose();
+            reverbRef.current?.dispose();
+
+            setIsAudioActive(false);
+        }
+    };
+
+    // Responsive Audio Mapping
+    useEffect(() => {
+        if (!isAudioActive || !oscRef.current || !distortionRef.current) return;
+
+        // 1. Map Wind Speed (300-800) to Pitch (100-600Hz)
+        // Clamp speed between 300 and 800 for normalization
+        const clampedSpeed = Math.max(300, Math.min(800, windSpeed));
+        const normalizedSpeed = (clampedSpeed - 300) / 500; // 0.0 to 1.0
+        const targetFreq = 100 + (normalizedSpeed * 500); // 100Hz to 600Hz
+
+        oscRef.current.frequency.rampTo(targetFreq, 0.5);
+
+        // 2. Map Storm Status to Distortion
+        // Peaceful = 0, Storm = 0.4
+        const targetDist = isStorm ? 0.4 : 0;
+        distortionRef.current.distortion = targetDist;
+
+    }, [windSpeed, isStorm, isAudioActive]);
+
+    // Cleanup on Unmount
+    useEffect(() => {
+        return () => {
+            if (oscRef.current) {
+                oscRef.current.stop();
+                oscRef.current.dispose();
+            }
+            distortionRef.current?.dispose();
+            reverbRef.current?.dispose();
+        };
+    }, []);
+
 
     const handleHover = (metric: keyof typeof METRICS | null, rect: DOMRect | null) => {
         setHoveredMetric(metric);
@@ -428,198 +507,227 @@ export const Weather = () => {
     const { solar, geomagnetic, location, alerts } = weather;
 
     return (
-        <div className="p-6 h-full overflow-y-auto pb-20 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-blue-950/40 via-[#050a14] to-black relative">
+        <div className="h-full bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-blue-950/40 via-[#050a14] to-black relative flex flex-col overflow-hidden">
 
-            {/* Global Tooltip Portal (Disable if modal open) */}
-            <AnimatePresence>
-                {hoveredMetric && anchorRect && !showFlareModal && (
-                    <HoverTooltip activeMetric={hoveredMetric} anchorRect={anchorRect} />
-                )}
-            </AnimatePresence>
-
-            {/* Flare Deep Dive Modal */}
-            <AnimatePresence>
-                {showFlareModal && (
-                    <FlareDeepDive
-                        active={showFlareModal}
-                        onClose={() => setShowFlareModal(false)}
-                        currentClass={solar.flares.class}
-                    />
-                )}
-            </AnimatePresence>
-
-            <HeaderTicker alerts={alerts} />
-
-            <div className="px-6 pb-6 max-w-7xl mx-auto">
-                <div className="flex items-center justify-between mb-8">
+            {/* --- FIXED TOP BAR (Standardized) --- */}
+            <div className="h-16 border-b border-white/10 bg-[#0B0C10]/80 backdrop-blur flex items-center px-6 justify-between shrink-0 z-40">
+                <div className="flex items-center space-x-4">
+                    <button onClick={() => setSidebarOpen((prev) => !prev)} className="p-2 bg-white/5 rounded-full hover:bg-white/10 text-gray-400 hover:text-white transition-colors border border-white/10">
+                        <Menu size={20} />
+                    </button>
                     <div>
-                        <h1 className="text-3xl font-bold font-orbitron text-white tracking-widest">SOLAR COMMAND</h1>
-                        <p className="text-xs text-gray-500 font-mono mt-1">
+                        <h1 className="text-xl font-bold font-orbitron text-white tracking-widest flex items-center gap-2">
+                            <Sun size={18} className="text-orange-500" /> SOLAR COMMAND
+                        </h1>
+                        <p className="text-[10px] text-gray-500 font-mono tracking-wider">
                             LOC: {location.city.toUpperCase()} • TELEMETRY LINK: ACTIVE
                         </p>
                     </div>
                 </div>
+                {/* Audio Toggle (Moved to Header) */}
+                <div className="flex items-center">
+                    <button
+                        onClick={toggleAudio}
+                        className={clsx(
+                            "flex items-center space-x-2 px-3 py-1.5 rounded-full transition-all duration-300 border text-[10px] font-bold font-mono",
+                            isAudioActive ? "bg-purple-900/40 border-purple-500/50 text-purple-300" : "bg-white/5 border-transparent text-gray-500 hover:bg-white/10"
+                        )}
+                    >
+                        {isAudioActive ? <Volume2 size={14} /> : <VolumeX size={14} />}
+                        <span>{isAudioActive ? "AUDIO ON" : "AUDIO OFF"}</span>
+                    </button>
+                </div>
+            </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* --- SCROLLABLE CONTENT --- */}
+            <div className="flex-1 overflow-y-auto p-6 relative">
 
-                    {/* SECTION 1: SOLAR EMISSIONS (Source) */}
-                    <div className="space-y-4">
-                        <div className="flex items-center space-x-2 border-b border-white/10 pb-2 mb-4">
-                            <Sun size={16} className="text-orange-400" />
-                            <h2 className="text-sm font-bold font-orbitron text-gray-300">I. SOLAR EMISSIONS</h2>
-                        </div>
+                {/* Global Tooltip Portal (Disable if modal open) */}
+                <AnimatePresence>
+                    {hoveredMetric && anchorRect && !showFlareModal && (
+                        <HoverTooltip activeMetric={hoveredMetric} anchorRect={anchorRect} />
+                    )}
+                </AnimatePresence>
 
-                        <SunModel3D textureUrl={solar.sunspots.image} />
+                {/* Flare Deep Dive Modal */}
+                <AnimatePresence>
+                    {showFlareModal && (
+                        <FlareDeepDive
+                            active={showFlareModal}
+                            onClose={() => setShowFlareModal(false)}
+                            currentClass={solar.flares.class}
+                        />
+                    )}
+                </AnimatePresence>
 
-                        {/* Flare Stats - Clickable Container */}
-                        <div
-                            className="bg-black/40 border border-white/10 rounded-xl p-4 backdrop-blur-md relative overflow-hidden group hover:border-orange-500/50 transition-colors cursor-pointer"
-                            onClick={() => setShowFlareModal(true)}
-                        >
-                            <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <span className="text-[9px] text-orange-400 font-bold uppercase tracking-wide">Click for Analysis</span>
+                <HeaderTicker alerts={alerts} />
+
+                <div className="pb-6 max-w-7xl mx-auto">
+                    {/* (Title Block Removed - Moved to Header) */}
+
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+                        {/* SECTION 1: SOLAR EMISSIONS (Source) */}
+                        <div className="space-y-4">
+                            <div className="flex items-center space-x-2 border-b border-white/10 pb-2 mb-4">
+                                <Sun size={16} className="text-orange-400" />
+                                <h2 className="text-sm font-bold font-orbitron text-gray-300">I. SOLAR EMISSIONS</h2>
                             </div>
 
-                            <div className="flex justify-between items-end mb-2">
-                                <div>
-                                    <div className="text-[10px] text-gray-400 uppercase">Current Flare Class</div>
-                                    <div className="text-3xl text-white font-orbitron font-bold flex items-baseline">
-                                        {solar.flares.class} <span className="text-xs text-gray-500 ml-2 font-mono">X-RAY FLUX</span>
+                            <SunModel3D textureUrl={solar.sunspots.image} />
+
+                            {/* Flare Stats - Clickable Container */}
+                            <div
+                                className="bg-black/40 border border-white/10 rounded-xl p-4 backdrop-blur-md relative overflow-hidden group hover:border-orange-500/50 transition-colors cursor-pointer"
+                                onClick={() => setShowFlareModal(true)}
+                            >
+                                <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <span className="text-[9px] text-orange-400 font-bold uppercase tracking-wide">Click for Analysis</span>
+                                </div>
+
+                                <div className="flex justify-between items-end mb-2">
+                                    <div>
+                                        <div className="text-[10px] text-gray-400 uppercase">Current Flare Class</div>
+                                        <div className="text-3xl text-white font-orbitron font-bold flex items-baseline">
+                                            {solar.flares.class} <span className="text-xs text-gray-500 ml-2 font-mono">X-RAY FLUX</span>
+                                        </div>
+                                    </div>
+                                    <Info size={14} className="text-gray-600 mb-1" />
+                                </div>
+                                {/* Realistic Flux Monitor Graph */}
+                                <div className="h-16 w-full mt-3 relative border-t border-b border-white/5 bg-black/20">
+                                    {/* Grid Lines (Log Scale Reference) */}
+                                    <div className="absolute top-[20%] w-full h-px bg-red-500/20 pointer-events-none"><span className="absolute -left-1 -top-1.5 text-[6px] text-red-500">M</span></div>
+                                    <div className="absolute top-[50%] w-full h-px bg-yellow-500/20 pointer-events-none"><span className="absolute -left-1 -top-1.5 text-[6px] text-yellow-500">C</span></div>
+                                    <div className="absolute top-[80%] w-full h-px bg-green-500/20 pointer-events-none"><span className="absolute -left-1 -top-1.5 text-[6px] text-green-500">B</span></div>
+
+                                    {/* SVG Data Visualization */}
+                                    <svg className="w-full h-full" preserveAspectRatio="none">
+                                        <polyline
+                                            points={solar.flares.history.map((pt, i) => {
+                                                const x = (i / (solar.flares.history.length - 1)) * 100;
+                                                // Log mapping: X-Class (10^-4) is top, A-Class (10^-8) is bottom
+                                                // Y = 100 - ((Log10(Flux) + 8) / 4) * 100  (Range -8 to -4 maps to 0-100%)
+                                                const logFlux = Math.log10(Math.max(pt.flux, 1e-9));
+                                                const y = 100 - ((logFlux + 8) / 4) * 100;
+                                                return `${x},${Math.max(0, Math.min(100, y))}`;
+                                            }).join(' ')}
+                                            fill="none"
+                                            stroke="orange"
+                                            strokeWidth="1.5"
+                                            vectorEffect="non-scaling-stroke"
+                                            className="drop-shadow-[0_0_4px_rgba(255,165,0,0.8)]"
+                                        />
+                                        {/* Gradient Area under curve */}
+                                        <defs>
+                                            <linearGradient id="fluxGradient" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="0%" stopColor="orange" stopOpacity="0.4" />
+                                                <stop offset="100%" stopColor="orange" stopOpacity="0" />
+                                            </linearGradient>
+                                        </defs>
+                                        <polygon
+                                            points={`0,100 ${solar.flares.history.map((pt, i) => {
+                                                const x = (i / (solar.flares.history.length - 1)) * 100;
+                                                const logFlux = Math.log10(Math.max(pt.flux, 1e-9));
+                                                const y = 100 - ((logFlux + 8) / 4) * 100;
+                                                return `${x},${Math.max(0, Math.min(100, y))}`;
+                                            }).join(' ')} 100,100`}
+                                            fill="url(#fluxGradient)"
+                                        />
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* SECTION 2: INTERPLANETARY MEDIUM (Transit) */}
+                        <div className="space-y-4">
+                            <div className="flex items-center space-x-2 border-b border-white/10 pb-2 mb-4">
+                                <Wind size={16} className="text-neon-cyan" />
+                                <h2 className="text-sm font-bold font-orbitron text-gray-300">II. SOLAR WIND</h2>
+                            </div>
+
+                            <SolarWindGauge wind={solar.wind} onHover={handleHover} />
+
+                            {/* Magnetometer */}
+                            <div className="bg-black/40 border border-white/10 rounded-xl p-4 backdrop-blur-md mt-4">
+                                <div className="flex items-center justify-between mb-3">
+                                    <h3 className="text-[10px] font-bold text-gray-400 font-orbitron uppercase">IMF Magnetometer</h3>
+                                    <Magnet size={14} className="text-gray-500" />
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div
+                                        className="bg-white/5 rounded p-2 text-center relative group hover:bg-white/10 transition-colors cursor-help"
+                                        onMouseEnter={(e) => handleHover('bt', e.currentTarget.getBoundingClientRect())}
+                                        onMouseLeave={() => handleHover(null, null)}
+                                    >
+                                        <div className="text-[9px] text-gray-500 mb-1">Total Field (Bt)</div>
+                                        <div className="text-lg font-mono font-bold text-white">{geomagnetic.magneticField.bt.toFixed(1)} <span className="text-[9px]">nT</span></div>
+                                    </div>
+                                    <div
+                                        className={clsx("bg-white/5 rounded p-2 text-center border relative group hover:bg-white/10 transition-colors cursor-help", geomagnetic.magneticField.bz < -5 ? "border-red-500/50 bg-red-500/10" : "border-transparent")}
+                                        onMouseEnter={(e) => handleHover('bz', e.currentTarget.getBoundingClientRect())}
+                                        onMouseLeave={() => handleHover(null, null)}
+                                    >
+                                        <div className="text-[9px] text-gray-500 mb-1">Z-Component (Bz)</div>
+                                        <div className="text-lg font-mono font-bold text-white">{geomagnetic.magneticField.bz.toFixed(1)} <span className="text-[9px]">nT</span></div>
                                     </div>
                                 </div>
-                                <Info size={14} className="text-gray-600 mb-1" />
-                            </div>
-                            {/* Realistic Flux Monitor Graph */}
-                            <div className="h-16 w-full mt-3 relative border-t border-b border-white/5 bg-black/20">
-                                {/* Grid Lines (Log Scale Reference) */}
-                                <div className="absolute top-[20%] w-full h-px bg-red-500/20 pointer-events-none"><span className="absolute -left-1 -top-1.5 text-[6px] text-red-500">M</span></div>
-                                <div className="absolute top-[50%] w-full h-px bg-yellow-500/20 pointer-events-none"><span className="absolute -left-1 -top-1.5 text-[6px] text-yellow-500">C</span></div>
-                                <div className="absolute top-[80%] w-full h-px bg-green-500/20 pointer-events-none"><span className="absolute -left-1 -top-1.5 text-[6px] text-green-500">B</span></div>
-
-                                {/* SVG Data Visualization */}
-                                <svg className="w-full h-full" preserveAspectRatio="none">
-                                    <polyline
-                                        points={solar.flares.history.map((pt, i) => {
-                                            const x = (i / (solar.flares.history.length - 1)) * 100;
-                                            // Log mapping: X-Class (10^-4) is top, A-Class (10^-8) is bottom
-                                            // Y = 100 - ((Log10(Flux) + 8) / 4) * 100  (Range -8 to -4 maps to 0-100%)
-                                            const logFlux = Math.log10(Math.max(pt.flux, 1e-9));
-                                            const y = 100 - ((logFlux + 8) / 4) * 100;
-                                            return `${x},${Math.max(0, Math.min(100, y))}`;
-                                        }).join(' ')}
-                                        fill="none"
-                                        stroke="orange"
-                                        strokeWidth="1.5"
-                                        vectorEffect="non-scaling-stroke"
-                                        className="drop-shadow-[0_0_4px_rgba(255,165,0,0.8)]"
-                                    />
-                                    {/* Gradient Area under curve */}
-                                    <defs>
-                                        <linearGradient id="fluxGradient" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="0%" stopColor="orange" stopOpacity="0.4" />
-                                            <stop offset="100%" stopColor="orange" stopOpacity="0" />
-                                        </linearGradient>
-                                    </defs>
-                                    <polygon
-                                        points={`0,100 ${solar.flares.history.map((pt, i) => {
-                                            const x = (i / (solar.flares.history.length - 1)) * 100;
-                                            const logFlux = Math.log10(Math.max(pt.flux, 1e-9));
-                                            const y = 100 - ((logFlux + 8) / 4) * 100;
-                                            return `${x},${Math.max(0, Math.min(100, y))}`;
-                                        }).join(' ')} 100,100`}
-                                        fill="url(#fluxGradient)"
-                                    />
-                                </svg>
                             </div>
                         </div>
-                    </div>
 
-                    {/* SECTION 2: INTERPLANETARY MEDIUM (Transit) */}
-                    <div className="space-y-4">
-                        <div className="flex items-center space-x-2 border-b border-white/10 pb-2 mb-4">
-                            <Wind size={16} className="text-neon-cyan" />
-                            <h2 className="text-sm font-bold font-orbitron text-gray-300">II. SOLAR WIND</h2>
-                        </div>
-
-                        <SolarWindGauge wind={solar.wind} onHover={handleHover} />
-
-                        {/* Magnetometer */}
-                        <div className="bg-black/40 border border-white/10 rounded-xl p-4 backdrop-blur-md mt-4">
-                            <div className="flex items-center justify-between mb-3">
-                                <h3 className="text-[10px] font-bold text-gray-400 font-orbitron uppercase">IMF Magnetometer</h3>
-                                <Magnet size={14} className="text-gray-500" />
+                        {/* SECTION 3: GEOSPACE IMPACT (Earth) */}
+                        <div className="space-y-4">
+                            <div className="flex items-center space-x-2 border-b border-white/10 pb-2 mb-4">
+                                <Zap size={16} className="text-purple-400" />
+                                <h2 className="text-sm font-bold font-orbitron text-gray-300">III. GEOSPACE IMPACT</h2>
                             </div>
-                            <div className="grid grid-cols-2 gap-3">
-                                <div
-                                    className="bg-white/5 rounded p-2 text-center relative group hover:bg-white/10 transition-colors cursor-help"
-                                    onMouseEnter={(e) => handleHover('bt', e.currentTarget.getBoundingClientRect())}
-                                    onMouseLeave={() => handleHover(null, null)}
-                                >
-                                    <div className="text-[9px] text-gray-500 mb-1">Total Field (Bt)</div>
-                                    <div className="text-lg font-mono font-bold text-white">{geomagnetic.magneticField.bt.toFixed(1)} <span className="text-[9px]">nT</span></div>
+
+                            {/* Kp Gauge */}
+                            <div
+                                className="bg-black/40 border border-white/10 rounded-xl p-6 backdrop-blur-md text-center relative group hover:bg-white/5 transition-colors cursor-help"
+                                onMouseEnter={(e) => handleHover('kp', e.currentTarget.getBoundingClientRect())}
+                                onMouseLeave={() => handleHover(null, null)}
+                            >
+                                <h3 className="text-[10px] font-bold text-gray-400 font-orbitron mb-2 uppercase flex justify-center gap-1">
+                                    K-Index (Storm Level)
+                                    <Info size={10} className="text-gray-600" />
+                                </h3>
+                                <div className={clsx(
+                                    "text-5xl font-bold font-orbitron mb-2 transition-colors",
+                                    geomagnetic.kp.current >= 5 ? "text-red-500 drop-shadow-[0_0_10px_red]" : "text-green-400"
+                                )}>
+                                    {geomagnetic.kp.current.toFixed(1)}
                                 </div>
-                                <div
-                                    className={clsx("bg-white/5 rounded p-2 text-center border relative group hover:bg-white/10 transition-colors cursor-help", geomagnetic.magneticField.bz < -5 ? "border-red-500/50 bg-red-500/10" : "border-transparent")}
-                                    onMouseEnter={(e) => handleHover('bz', e.currentTarget.getBoundingClientRect())}
-                                    onMouseLeave={() => handleHover(null, null)}
-                                >
-                                    <div className="text-[9px] text-gray-500 mb-1">Z-Component (Bz)</div>
-                                    <div className="text-lg font-mono font-bold text-white">{geomagnetic.magneticField.bz.toFixed(1)} <span className="text-[9px]">nT</span></div>
+                                <div className="flex justify-center space-x-1 h-1.5 mb-2 px-8">
+                                    {[...Array(9)].map((_, i) => (
+                                        <div key={i} className={clsx(
+                                            "w-2 rounded-full",
+                                            i < geomagnetic.kp.current ? (i >= 5 ? "bg-red-500" : "bg-green-500") : "bg-gray-800"
+                                        )} />
+                                    ))}
                                 </div>
+                                <div className="text-[10px] font-bold text-gray-300 tracking-widest">{geomagnetic.kp.status}</div>
                             </div>
+
+                            <AuroraMap location={location} kp={geomagnetic.kp.current} />
+
+                            {/* Mission Advisory */}
+                            <div className="bg-blue-900/10 border border-blue-500/20 rounded-xl p-4">
+                                <div className="flex items-center space-x-2 mb-2">
+                                    <Radio size={14} className="text-blue-400" />
+                                    <h3 className="text-[10px] font-bold text-blue-300 font-orbitron uppercase">Tactical Advisory</h3>
+                                </div>
+                                <p className="text-[10px] text-gray-300 font-mono leading-relaxed">
+                                    {geomagnetic.kp.current >= 5
+                                        ? "STORM WARNING: Satellite drag increasing. HF Radio blackout probable. Aurora visible at lower latitudes. Check Bz orientation."
+                                        : "CONDITIONS NOMINAL. Solar wind stable. Good conditions for satellite operations."}
+                                </p>
+                            </div>
+
+                            {/* AUDIO SONIFICATION MODULE (Moved to Header, kept minimal status here if needed or removed) */}
                         </div>
+
                     </div>
-
-                    {/* SECTION 3: GEOSPACE IMPACT (Earth) */}
-                    <div className="space-y-4">
-                        <div className="flex items-center space-x-2 border-b border-white/10 pb-2 mb-4">
-                            <Zap size={16} className="text-purple-400" />
-                            <h2 className="text-sm font-bold font-orbitron text-gray-300">III. GEOSPACE IMPACT</h2>
-                        </div>
-
-                        {/* Kp Gauge */}
-                        <div
-                            className="bg-black/40 border border-white/10 rounded-xl p-6 backdrop-blur-md text-center relative group hover:bg-white/5 transition-colors cursor-help"
-                            onMouseEnter={(e) => handleHover('kp', e.currentTarget.getBoundingClientRect())}
-                            onMouseLeave={() => handleHover(null, null)}
-                        >
-                            <h3 className="text-[10px] font-bold text-gray-400 font-orbitron mb-2 uppercase flex justify-center gap-1">
-                                K-Index (Storm Level)
-                                <Info size={10} className="text-gray-600" />
-                            </h3>
-                            <div className={clsx(
-                                "text-5xl font-bold font-orbitron mb-2 transition-colors",
-                                geomagnetic.kp.current >= 5 ? "text-red-500 drop-shadow-[0_0_10px_red]" : "text-green-400"
-                            )}>
-                                {geomagnetic.kp.current.toFixed(1)}
-                            </div>
-                            <div className="flex justify-center space-x-1 h-1.5 mb-2 px-8">
-                                {[...Array(9)].map((_, i) => (
-                                    <div key={i} className={clsx(
-                                        "w-2 rounded-full",
-                                        i < geomagnetic.kp.current ? (i >= 5 ? "bg-red-500" : "bg-green-500") : "bg-gray-800"
-                                    )} />
-                                ))}
-                            </div>
-                            <div className="text-[10px] font-bold text-gray-300 tracking-widest">{geomagnetic.kp.status}</div>
-                        </div>
-
-                        <AuroraMap location={location} kp={geomagnetic.kp.current} />
-
-                        {/* Mission Advisory */}
-                        <div className="bg-blue-900/10 border border-blue-500/20 rounded-xl p-4">
-                            <div className="flex items-center space-x-2 mb-2">
-                                <Radio size={14} className="text-blue-400" />
-                                <h3 className="text-[10px] font-bold text-blue-300 font-orbitron uppercase">Tactical Advisory</h3>
-                            </div>
-                            <p className="text-[10px] text-gray-300 font-mono leading-relaxed">
-                                {geomagnetic.kp.current >= 5
-                                    ? "STORM WARNING: Satellite drag increasing. HF Radio blackout probable. Aurora visible at lower latitudes. Check Bz orientation."
-                                    : "CONDITIONS NOMINAL. Solar wind stable. Good conditions for satellite operations."}
-                            </p>
-                        </div>
-                    </div>
-
                 </div>
             </div>
         </div>

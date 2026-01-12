@@ -25,7 +25,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
     return (
         <>
             {/* Closed State Toggle: Minimalist Floating Icon */}
-            {!isOpen && (
+            {/* Closed State Toggle: Minimalist Floating Icon */}
+            {!isOpen && !['/mission-control', '/star-gazer', '/cosmic-weather'].includes(location.pathname) && (
                 <button
                     onClick={() => setIsOpen(true)}
                     className="fixed top-6 left-6 z-50 sidebar-interactive text-neon-cyan/70 hover:text-neon-cyan transition-colors duration-300"

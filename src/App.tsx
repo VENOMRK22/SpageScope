@@ -6,6 +6,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { PlaceholderPage } from './pages/PlaceholderPages';
 import { Events } from './pages/Events';
 import { Weather } from './pages/Weather';
+import { Launches } from './pages/Launches';
 import { DataProvider } from './context/DataContext';
 import { AuthProvider } from './context/AuthContext';
 
@@ -27,7 +28,7 @@ function App() {
               <Route index element={<Home />} />
               <Route path="star-gazer" element={<Events />} />
               <Route path="cosmic-weather" element={<Weather />} />
-              <Route path="mission-control" element={<PlaceholderPage title="Mission Control" subtitle="Launch Command" />} />
+              <Route path="mission-control" element={<Launches />} />
               <Route path="satellite-savior" element={<PlaceholderPage title="Satellite Savior" subtitle="Orbital Defense" />} />
               <Route path="academy" element={<PlaceholderPage title="The Academy" subtitle="Training Module" />} />
 

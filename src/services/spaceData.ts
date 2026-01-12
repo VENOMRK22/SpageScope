@@ -1,6 +1,6 @@
 // Types
 export interface SkyEvent {
-    id: number;
+    id: number | string;
     title: string;
     date: string;
     type: 'meteor' | 'eclipse' | 'conjunction' | 'comet' | 'planet' | 'satellite' | 'aurora' | 'lunar' | 'terrestrial';
@@ -494,16 +494,76 @@ export const fetchSolarData = async (): Promise<SolarData | null> => {
     }
 };
 
+// --- HIVE MIND CACHING ---
+import { db } from '../lib/firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+
+const CACHE_COLLECTION = 'mission_control_center';
+const CACHE_DOC_ID = 'global_launches_v2';
+const CACHE_DURATION_MS = 60 * 60 * 1000; // 1 Hour
+
 export const fetchRealLaunches = async (): Promise<Launch[]> => {
     try {
-        // Raw Fetch only - Caching moved up to Adapter level
-        console.log("Fetching fresh Launch data from API... 📡");
-        const response = await fetch('https://lldev.thespacedevs.com/2.2.0/launch/upcoming/?limit=5');
-        if (!response.ok) throw new Error('Network response was not ok');
-        const data = await response.json();
-        return data.results;
+        console.log("🚀 INITIALIZING LAUNCH CONTROL UPLINK...");
+        const docRef = doc(db, CACHE_COLLECTION, CACHE_DOC_ID);
+        const docSnap = await getDoc(docRef);
+
+        let launches: Launch[] = [];
+        let needsUpdate = true;
+
+        // 1. Check Cache
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            const age = Date.now() - (data.lastUpdated || 0);
+
+            if (age < CACHE_DURATION_MS && data.launches) {
+                console.log(`⚡ LAUNCH CONTROL: CACHE HIT (${(age / 1000 / 60).toFixed(0)}m old).`);
+                return data.launches as Launch[];
+            }
+        }
+
+        // 2. Fetch Fresh Data if needed
+        console.log("📡 LAUNCH CONTROL: CONTACTING GLOBAL NETWORK...");
+
+        // Fetch Upcoming and Previous in parallel
+        const [upcomingRes, previousRes] = await Promise.all([
+            fetch('https://lldev.thespacedevs.com/2.2.0/launch/upcoming/?limit=10'),
+            fetch('https://lldev.thespacedevs.com/2.2.0/launch/previous/?limit=10')
+        ]);
+
+        if (!upcomingRes.ok || !previousRes.ok) throw new Error('Network response was not ok');
+
+        const upcomingData = await upcomingRes.json();
+        const previousData = await previousRes.json();
+
+        // Deduplicate (API might return overlaps or same mission if time windows are close)
+        const rawList = [...upcomingData.results, ...previousData.results];
+        const uniqueMap = new Map();
+        rawList.forEach((l: any) => uniqueMap.set(l.id, l));
+        const freshLaunches = Array.from(uniqueMap.values()) as Launch[];
+
+        // 3. Update Cache
+        await setDoc(docRef, {
+            launches: freshLaunches,
+            lastUpdated: Date.now()
+        });
+        console.log("💾 LAUNCH CONTROL: UPDATED GLOBAL DATABASE.");
+
+        return freshLaunches;
+
     } catch (error) {
         console.error("Error fetching real launches:", error);
+        // Fallback to cache if API fails, even if old
+        try {
+            const docRef = doc(db, CACHE_COLLECTION, CACHE_DOC_ID);
+            const fallbackSnap = await getDoc(docRef);
+            if (fallbackSnap.exists()) {
+                console.warn("⚠️ LAUNCH CONTROL: API FAILED. USING ARCHIVES.");
+                return fallbackSnap.data().launches as Launch[];
+            }
+        } catch (e) {
+            console.error("Cache fallback failed", e);
+        }
         return fetchLaunchesMock();
     }
 };
