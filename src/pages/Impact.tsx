@@ -4,6 +4,7 @@ import { AreaChart, Area, XAxis, CartesianGrid, Tooltip, ResponsiveContainer, Ba
 import { Wind, Droplets, Activity, MapPin, AlertTriangle, Leaf, Globe, Info, Clock, Satellite } from 'lucide-react';
 import clsx from 'clsx';
 import { AnimatePresence, motion } from 'framer-motion';
+import { getDailyCache, setDailyCache } from '../lib/cacheUtils';
 
 // Constants
 const API_METEO = 'https://api.open-meteo.com/v1/forecast';
@@ -231,6 +232,17 @@ export const Impact = () => {
     useEffect(() => {
         const fetchEpic = async () => {
             try {
+                // 0. Check Cache
+                const cached = await getDailyCache('epic');
+                if (cached) {
+                    setEpicImages(cached.map((item: any) => ({
+                        ...item,
+                        date: new Date(item.date) // Rehydrate Date object
+                    })));
+                    return;
+                }
+
+                // 1. Fetch API
                 const res = await fetch(API_EPIC);
                 if (!res.ok) throw new Error("EPIC API Failed");
                 const data = await res.json();
@@ -243,14 +255,23 @@ export const Impact = () => {
                     const day = String(date.getDate()).padStart(2, '0');
                     return {
                         id: item.identifier,
-                        date: date,
+                        date: date.toISOString(), // Store as string for JSON/Firestore compatibility
                         imageUrl: `https://epic.gsfc.nasa.gov/archive/natural/${year}/${month}/${day}/png/${item.image}.png`
                     };
                 });
-                setEpicImages(processed);
+
+                // 2. Set State
+                setEpicImages(processed.map((item: any) => ({
+                    ...item,
+                    date: new Date(item.date)
+                })));
+
+                // 3. Cache
+                setDailyCache('epic', processed);
+
             } catch (err) {
                 console.warn("Failed to fetch Earth Gallery:", err);
-                // Fallback or empty state is fine for this auxiliary feature
+                // Fallback handled by empty state rendering holographic earth
             }
         };
 

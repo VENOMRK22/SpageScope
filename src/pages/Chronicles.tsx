@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ExternalLink, Satellite, Radio, Newspaper } from 'lucide-react';
+import { getDailyCache, setDailyCache } from '../lib/cacheUtils';
 
 // --- MOCK DATA FALLBACKS ---
 // --- MOCK DATA FALLBACKS (GOLDEN SET - LOCAL ASSETS) ---
@@ -160,110 +161,90 @@ export const Chronicles = () => {
     useEffect(() => {
         const fetchDeepFieldData = async () => {
             try {
-                // 1. Calculate Dates for APOD
-                const formatDate = (date: Date) => date.toISOString().split('T')[0];
+                // 0. Try Cache First (Firestore)
+                const cachedApod = await getDailyCache('apod');
+                if (cachedApod) {
+                    setGalleryItems(cachedApod);
+                    setIsSimulated(false);
+                    setStatusMessage("LIVE UPLINK ESTABLISHED (CACHED)");
+                    setLoading(false);
+                }
 
+                // 1. Calculate Dates for APOD if no cache or to fetch fresh if needed (though logic above returns early if cache hit, we might want to fetch news regardless)
+                // Actually, if cache hit, we still need News. So let's separate them.
+
+                const formatDate = (date: Date) => date.toISOString().split('T')[0];
                 const today = new Date();
                 const pastDate = new Date(today);
-                pastDate.setDate(today.getDate() - 10); // Standard 10 day lookback
+                pastDate.setDate(today.getDate() - 10);
 
                 let startDate = formatDate(pastDate);
                 let endDate = formatDate(today);
-
-                // Use Env Key or Fallback to DEMO_KEY
                 const API_KEY = import.meta.env.VITE_NASA_API_KEY || 'DEMO_KEY';
 
-                // Helper to fetch APOD with a specific date range
-                const fetchApod = async (start: string, end: string) => {
-                    const res = await fetch(`https://api.nasa.gov/planetary/apod?api_key=${API_KEY}&start_date=${start}&end_date=${end}`);
-                    if (!res.ok) {
-                        const errorText = await res.text();
-                        throw new Error(`NASA API Error ${res.status}: ${errorText}`); // Capture detailed error
-                    }
-                    return res.json();
-                };
+                // Fetch APOD if NOT cached
+                if (!cachedApod) {
+                    const fetchApod = async (start: string, end: string) => {
+                        const res = await fetch(`https://api.nasa.gov/planetary/apod?api_key=${API_KEY}&start_date=${start}&end_date=${end}`);
+                        if (!res.ok) throw new Error(`NASA API Error ${res.status}`);
+                        return res.json();
+                    };
 
-                // 2. Fetch APIs in Parallel with Retry Logic for APOD
-                let apodData = null;
-                try {
-                    // Attempt 1: Try fetching up to "Today"
-                    apodData = await fetchApod(startDate, endDate);
-                } catch (e: any) {
-                    console.warn(`Standard APOD fetch failed: ${e.message}, retrying with yesterday...`);
-
-                    // Attempt 2: If "Today" fails matches (future date), try up to "Yesterday"
-                    const yesterday = new Date(today);
-                    yesterday.setDate(yesterday.getDate() - 1);
-                    endDate = formatDate(yesterday);
-
-                    const pastDateRetry = new Date(yesterday);
-                    pastDateRetry.setDate(yesterday.getDate() - 10);
-                    startDate = formatDate(pastDateRetry);
-
+                    let apodData = null;
                     try {
                         apodData = await fetchApod(startDate, endDate);
-                    } catch (retryErr: any) {
-                        console.error("Retry APOD fetch failed:", retryErr);
-                        // Store the specific error to show the user
-                        if (retryErr.message.includes("429")) {
-                            setStatusMessage("SIMULATION MODE (API RATE LIMIT REACHED)");
-                        } else if (retryErr.message.includes("400")) {
-                            setStatusMessage("SIMULATION MODE (DATE SYNC ERROR)");
-                        } else {
-                            setStatusMessage("SIMULATION MODE (CONNECTION FAILED)");
+                    } catch (e) {
+                        // Retry logic (yesterday)
+                        console.warn("Retrying APOD...");
+                        const yesterday = new Date(today);
+                        yesterday.setDate(yesterday.getDate() - 1);
+                        endDate = formatDate(yesterday);
+                        const pastDateRetry = new Date(yesterday);
+                        pastDateRetry.setDate(yesterday.getDate() - 10);
+                        startDate = formatDate(pastDateRetry);
+                        try {
+                            apodData = await fetchApod(startDate, endDate);
+                        } catch (retryErr: any) {
+                            console.error("APOD Retry Failed:", retryErr);
+                            if (!cachedApod) {
+                                setStatusMessage("SIMULATION MODE (CONNECTION FAILED)");
+                                setIsSimulated(true);
+                            }
                         }
+                    }
+
+                    if (apodData && Array.isArray(apodData)) {
+                        const images = apodData.filter((item: ApodItem) => item.media_type === 'image').reverse();
+                        if (images.length > 0) {
+                            setGalleryItems(images);
+                            setIsSimulated(false);
+                            setStatusMessage("LIVE UPLINK ESTABLISHED");
+                            // Cache the result!
+                            setDailyCache('apod', images);
+                        } else {
+                            setGalleryItems(MOCK_GALLERY);
+                            setIsSimulated(true);
+                        }
+                    } else if (!isSimulated) {
+                        setGalleryItems(MOCK_GALLERY);
                         setIsSimulated(true);
                     }
                 }
 
+                // 4. Process News (Keep independent of APOD cache)
                 const newsRes = await fetch('https://api.spaceflightnewsapi.net/v4/articles/?limit=16');
-
-                // 3. Process APOD
-                if (apodData && Array.isArray(apodData)) {
-                    const images = apodData.filter((item: ApodItem) => item.media_type === 'image').reverse();
-                    if (images.length > 0) {
-                        setGalleryItems(images);
-                        setIsSimulated(false);
-                        setStatusMessage("LIVE UPLINK ESTABLISHED");
-                    } else {
-                        setStatusMessage("SIMULATION MODE (NO IMAGES FOUND)");
-                        setIsSimulated(true);
-                        setGalleryItems(MOCK_GALLERY);
-                    }
-                } else if (!isSimulated) {
-                    // Only set mock gallery if we haven't already set it in the catch block
-                    // Wait, if apodData is null/invalid but NO error was caught (weird edge case)
-                    if (!apodData && !isSimulated) {
-                        setStatusMessage("SIMULATION MODE (INVALID DATA)");
-                        setIsSimulated(true);
-                        setGalleryItems(MOCK_GALLERY);
-                    }
-                }
-
-                // If fallback triggered, ensure we fill data
-                if (isSimulated || !apodData) {
-                    setGalleryItems(MOCK_GALLERY);
-                }
-
-
-                // 4. Process News
                 if (newsRes.ok) {
                     const newsData = await newsRes.json();
                     setNewsItems(newsData.results.length > 0 ? newsData.results : MOCK_NEWS);
                 } else {
-                    console.warn("News API failed, using mock data.");
                     setNewsItems(MOCK_NEWS);
                 }
 
             } catch (err: any) {
-                console.error("Deep Field Uplink Failed (Using Simulation):", err);
+                console.error("Deep Field Uplink Failed:", err);
                 setGalleryItems(MOCK_GALLERY);
                 setNewsItems(MOCK_NEWS);
                 setIsSimulated(true);
-                // Last ditch error message update if not already set
-                if (statusMessage === "LIVE UPLINK ESTABLISHED") {
-                    setStatusMessage("SIMULATION MODE (SYSTEM FAILURE)");
-                }
             } finally {
                 setLoading(false);
             }
