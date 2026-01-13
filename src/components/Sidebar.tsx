@@ -38,7 +38,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
             )}
             {/* Closed State Toggle: Minimalist Floating Icon */}
             {/* Closed State Toggle: Minimalist Floating Icon */}
-            {!isOpen && !['/mission-control', '/star-gazer', '/cosmic-weather'].includes(location.pathname) && (
+            {!isOpen && !['/mission-control', '/star-gazer', '/cosmic-weather', '/solar-system'].includes(location.pathname) && (
                 <button
                     onClick={() => setIsOpen(true)}
                     className="fixed top-6 left-6 z-50 sidebar-interactive text-neon-cyan/70 hover:text-neon-cyan transition-colors duration-300"
@@ -94,24 +94,30 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
                 </nav>
 
                 {/* User Profile & Logout (Replaces Static Status) */}
-                <div className="absolute bottom-8 w-full px-6">
-                    <div className="glass-panel p-4 rounded-xl text-xs text-muted-gray border border-white/5">
-                        <div className="flex items-center space-x-3 mb-3">
-                            <div className="p-2 bg-neon-cyan/20 rounded-full">
-                                <User size={14} className="text-neon-cyan" />
+                {/* User Profile & Logout - Redesigned */}
+                <div className="absolute bottom-0 w-full p-6 bg-gradient-to-t from-black/80 to-transparent">
+                    <div className="flex items-center justify-between group">
+                        <div className="flex items-center space-x-3 overflow-hidden">
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-neon-cyan to-purple-500 p-[1px] shadow-[0_0_10px_rgba(0,243,255,0.3)]">
+                                <div className="w-full h-full rounded-full bg-black flex items-center justify-center">
+                                    <User size={14} className="text-white" />
+                                </div>
                             </div>
-                            <div className="overflow-hidden">
-                                <p className="text-[10px] uppercase font-bold text-white/70">OPERATOR</p>
-                                <p className="text-[10px] text-neon-cyan truncate">{user?.email || "UNKNOWN"}</p>
+                            <div className="flex flex-col min-w-0">
+                                <span className="text-xs font-bold text-white tracking-wide truncate">{user?.email?.split('@')[0] || "OPERATOR"}</span>
+                                <span className="text-[10px] text-neon-cyan/70 font-orbitron tracking-wider flex items-center">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-neon-green mr-1.5 animate-pulse" />
+                                    ONLINE
+                                </span>
                             </div>
                         </div>
 
                         <button
                             onClick={logout}
-                            className="w-full flex items-center justify-center space-x-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 py-2 rounded transition-colors border border-red-500/30"
+                            className="p-2 text-white/50 hover:text-red-400 hover:bg-white/5 rounded-full transition-all duration-300"
+                            title="Disconnect"
                         >
-                            <LogOut size={12} />
-                            <span className="font-bold tracking-wider">DISCONNECT</span>
+                            <LogOut size={16} />
                         </button>
                     </div>
                 </div>

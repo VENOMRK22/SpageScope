@@ -10,7 +10,7 @@ export const SearchModule: React.FC = () => {
     const [results, setResults] = useState<any[]>([]);
     const inputRef = useRef<HTMLInputElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
-    
+
     const { events, launches, loading } = useContext(DataContext);
     const navigate = useNavigate();
 
@@ -45,14 +45,14 @@ export const SearchModule: React.FC = () => {
         const lowerQuery = query.toLowerCase();
 
         // 1. Filter Events (Star Gazer)
-        const matchedEvents = events.filter(e => 
-            e.title.toLowerCase().includes(lowerQuery) || 
+        const matchedEvents = events.filter(e =>
+            e.title.toLowerCase().includes(lowerQuery) ||
             e.description.toLowerCase().includes(lowerQuery)
         ).map(e => ({ type: 'event', data: e }));
 
         // 2. Filter Launches (Mission Control)
-        const matchedLaunches = launches.filter(l => 
-            l.name.toLowerCase().includes(lowerQuery) || 
+        const matchedLaunches = launches.filter(l =>
+            l.name.toLowerCase().includes(lowerQuery) ||
             l.mission?.description?.toLowerCase().includes(lowerQuery) ||
             l.launch_service_provider?.name.toLowerCase().includes(lowerQuery)
         ).map(l => ({ type: 'launch', data: l }));
@@ -71,7 +71,18 @@ export const SearchModule: React.FC = () => {
     };
 
     return (
-        <div ref={containerRef} className="absolute top-6 right-24 z-50 pointer-events-auto flex flex-col items-end font-sans">
+        <div ref={containerRef} className="absolute top-6 right-24 z-50 pointer-events-auto flex items-center font-sans space-x-2">
+            {/* NASA Solar System Button */}
+            {!isOpen && (
+                <button
+                    onClick={() => navigate('/solar-system')}
+                    className="w-12 h-12 flex items-center justify-center bg-black/60 backdrop-blur-md border border-neon-cyan/30 rounded-full hover:bg-neon-cyan/10 hover:scale-110 transition-all duration-300 shadow-[0_0_15px_rgba(0,243,255,0.1)] group"
+                    title="NASA Solar System Eyes"
+                >
+                    <img src="/nasa.svg" alt="NASA" className="w-8 h-8 opacity-80 group-hover:opacity-100 transition-opacity" />
+                </button>
+            )}
+
             {/* Search Bar Container */}
             <div className={clsx(
                 "flex items-center bg-black/60 backdrop-blur-md border border-neon-cyan/30 rounded-full transition-all duration-500 ease-out shadow-[0_0_15px_rgba(0,243,255,0.1)]",
@@ -129,7 +140,7 @@ export const SearchModule: React.FC = () => {
                     </div>
                 </div>
             )}
-            
+
             {/* No Results State */}
             {isOpen && query.length > 1 && results.length === 0 && (
                 <div className="mt-2 w-80 bg-black/80 backdrop-blur-xl border border-white/10 rounded-xl p-4 text-center text-gray-400 text-sm animate-in fade-in slide-in-from-top-2">

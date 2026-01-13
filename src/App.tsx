@@ -12,6 +12,8 @@ import { AuthProvider } from './context/AuthContext';
 
 import { Impact } from './pages/Impact'; // Import Impact Page
 import { Chronicles } from './pages/Chronicles'; // Import Chronicles Page
+import { Academy } from './pages/Academy'; // Import Academy Page
+import { SolarSystem } from './pages/SolarSystem'; // Import Solar System Page
 
 function App() {
   return (
@@ -34,7 +36,8 @@ function App() {
               <Route path="mission-control" element={<Launches />} />
               <Route path="satellite-savior" element={<Impact />} />
               <Route path="deep-field" element={<Chronicles />} />
-              <Route path="academy" element={<PlaceholderPage title="The Academy" subtitle="Training Module" />} />
+              <Route path="academy" element={<Academy />} />
+              <Route path="solar-system" element={<SolarSystem />} />
 
               {/* Legacy Routes */}
               <Route path="events" element={<Events />} />

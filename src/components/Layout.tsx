@@ -7,7 +7,7 @@ import clsx from 'clsx';
 export const Layout: React.FC = () => {
     const [isSidebarOpen, setSidebarOpen] = useState(true);
     const location = useLocation();
-    const isFullScreenPage = location.pathname === '/star-gazer' || location.pathname === '/cosmic-weather' || location.pathname === '/mission-control' || location.pathname === '/satellite-savior' || location.pathname === '/deep-field';
+    const isFullScreenPage = location.pathname === '/star-gazer' || location.pathname === '/cosmic-weather' || location.pathname === '/mission-control' || location.pathname === '/satellite-savior' || location.pathname === '/deep-field' || location.pathname === '/academy' || location.pathname === '/solar-system';
 
     // Trigger Resize Event on Toggle to update Globe/Canvas widths
     useEffect(() => {
