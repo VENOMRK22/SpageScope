@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ExternalLink, Satellite, Radio, Newspaper } from 'lucide-react';
-import { getDailyCache, setDailyCache } from '../lib/cacheUtils';
+import { getSmartCache, setSmartCache } from '../lib/cacheUtils';
 
 // --- MOCK DATA FALLBACKS ---
 // --- MOCK DATA FALLBACKS (GOLDEN SET - LOCAL ASSETS) ---
@@ -161,8 +161,8 @@ export const Chronicles = () => {
     useEffect(() => {
         const fetchDeepFieldData = async () => {
             try {
-                // 0. Try Cache First (Firestore)
-                const cachedApod = await getDailyCache('apod');
+                // 0. Try Cache First (Firestore) - 24 Hour TTL for APOD
+                const cachedApod = await getSmartCache('apod', 24);
                 if (cachedApod) {
                     setGalleryItems(cachedApod);
                     setIsSimulated(false);
@@ -220,7 +220,7 @@ export const Chronicles = () => {
                             setIsSimulated(false);
                             setStatusMessage("LIVE UPLINK ESTABLISHED");
                             // Cache the result!
-                            setDailyCache('apod', images);
+                            setSmartCache('apod', images);
                         } else {
                             setGalleryItems(MOCK_GALLERY);
                             setIsSimulated(true);

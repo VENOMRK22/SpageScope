@@ -1,15 +1,14 @@
-
 import { useState, useEffect } from 'react';
 import { AreaChart, Area, XAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { Wind, Droplets, Activity, MapPin, AlertTriangle, Leaf, Globe, Info, Clock, Satellite } from 'lucide-react';
 import clsx from 'clsx';
 import { AnimatePresence, motion } from 'framer-motion';
-import { getDailyCache, setDailyCache } from '../lib/cacheUtils';
+import { getSmartCache, setSmartCache } from '../lib/cacheUtils';
 
 // Constants
 const API_METEO = 'https://api.open-meteo.com/v1/forecast';
 const API_AIR = 'https://air-quality-api.open-meteo.com/v1/air-quality';
-const API_EPIC = 'https://api.nasa.gov/EPIC/api/natural?api_key=DEMO_KEY';
+const API_EPIC = 'https://api.nasa.gov/EPIC/api/natural?api_key=' + (import.meta.env.VITE_NASA_API_KEY || 'DEMO_KEY');
 
 // --- MOCK DATA FOR FALLBACK ---
 const MOCK_CLIMATE: ClimateData = {
@@ -232,8 +231,8 @@ export const Impact = () => {
     useEffect(() => {
         const fetchEpic = async () => {
             try {
-                // 0. Check Cache
-                const cached = await getDailyCache('epic');
+                // 0. Check Cache (1 Hour TTL)
+                const cached = await getSmartCache('epic', 1);
                 if (cached) {
                     setEpicImages(cached.map((item: any) => ({
                         ...item,
@@ -267,11 +266,10 @@ export const Impact = () => {
                 })));
 
                 // 3. Cache
-                setDailyCache('epic', processed);
+                setSmartCache('epic', processed);
 
             } catch (err) {
                 console.warn("Failed to fetch Earth Gallery:", err);
-                // Fallback handled by empty state rendering holographic earth
             }
         };
 
@@ -296,17 +294,32 @@ export const Impact = () => {
             setIsSimulated(false);
 
             try {
-                const [meteoRes, airRes, disasterRes] = await Promise.all([
+                // FETCH LOCAL WEATHER (Always Fresh / or cached locally by browser, but explicitly fetching here)
+                // Note: We don't cache local weather globally because it varies by user location.
+
+                // FETCH DISASTERS (Global - Cached 1h)
+                let disasterEvents = [];
+                const cachedDisasters = await getSmartCache('global_disasters', 1); // 1 Hour TTL
+
+                if (cachedDisasters) {
+                    disasterEvents = cachedDisasters;
+                } else {
+                    const disasterRes = await fetch('https://eonet.gsfc.nasa.gov/api/v3/events?limit=2&status=open');
+                    const disasterData = await disasterRes.json();
+                    disasterEvents = disasterData.events || [];
+                    setSmartCache('global_disasters', disasterEvents);
+                }
+
+                // Parallel Fetch for Local Data
+                const [meteoRes, airRes] = await Promise.all([
                     fetch(`${API_METEO}?latitude=${lat}&longitude=${lon}&current=temperature_2m,wind_speed_10m,soil_temperature_0cm,soil_moisture_0_to_1cm&hourly=temperature_2m,rain,soil_moisture_0_to_1cm&daily=uv_index_max,precipitation_sum`),
-                    fetch(`${API_AIR}?latitude=${lat}&longitude=${lon}&current=pm10,pm2_5,carbon_monoxide&hourly=pm10,pm2_5`),
-                    fetch('https://eonet.gsfc.nasa.gov/api/v3/events?limit=2&status=open')
+                    fetch(`${API_AIR}?latitude=${lat}&longitude=${lon}&current=pm10,pm2_5,carbon_monoxide&hourly=pm10,pm2_5`)
                 ]);
 
                 if (!meteoRes.ok || !airRes.ok) throw new Error("API Limit / Unstable");
 
                 const meteo = await meteoRes.json();
                 const air = await airRes.json();
-                const disasterData = await disasterRes.json();
 
                 setClimateData({
                     current: {
@@ -340,7 +353,7 @@ export const Impact = () => {
                     }
                 });
 
-                setDisasters(disasterData.events || []);
+                setDisasters(disasterEvents);
 
             } catch (err) {
                 console.error("Fetch failed, triggering fallback:", err);

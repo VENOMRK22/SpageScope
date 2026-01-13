@@ -396,22 +396,17 @@ export const fetchSkyEvents = async (): Promise<SkyEvent[]> => {
     }
 };
 
-// Caching Config (Bumped to v2 to force coordinate update)
-const EVENTS_CACHE_KEY = 'space_scope_events_cache_v2';
-const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 Hours
+
 
 // ADAPTER: Real Launch Data -> SkyEvent Interface
 export const fetchRealSkyEvents = async (): Promise<SkyEvent[]> => {
     // 1. Check Use-Case Cache (Preserves all metrics/units exactly as generated)
     try {
-        const cachedRaw = localStorage.getItem(EVENTS_CACHE_KEY);
-        if (cachedRaw) {
-            const { timestamp, data } = JSON.parse(cachedRaw);
-            const age = Date.now() - timestamp;
-            if (age < CACHE_DURATION) {
-                console.log(`[Cache Hit] Serving Full Event Logic from Storage (${(age / 1000 / 60).toFixed(1)} mins old) ⚡`);
-                return data;
-            }
+        // Use 24h TTL for the daily event summary
+        const cachedData = await getSmartCache('global_sky_events', 24);
+        if (cachedData) {
+            console.log(`[Cache Hit] Serving Full Event Logic from Storage ⚡`);
+            return cachedData as SkyEvent[];
         }
     } catch (e) {
         console.warn("Cache read error", e);
@@ -461,10 +456,7 @@ export const fetchRealSkyEvents = async (): Promise<SkyEvent[]> => {
         });
 
         // 4. Save EXACT Result to Cache
-        localStorage.setItem(EVENTS_CACHE_KEY, JSON.stringify({
-            timestamp: Date.now(),
-            data: adaptedEvents
-        }));
+        await setSmartCache('global_sky_events', adaptedEvents);
 
         return adaptedEvents;
 
@@ -495,31 +487,18 @@ export const fetchSolarData = async (): Promise<SolarData | null> => {
 };
 
 // --- HIVE MIND CACHING ---
-import { db } from '../lib/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { getSmartCache, setSmartCache } from '../lib/cacheUtils';
 
-const CACHE_COLLECTION = 'mission_control_center';
-const CACHE_DOC_ID = 'global_launches_v2';
-const CACHE_DURATION_MS = 60 * 60 * 1000; // 1 Hour
 
 export const fetchRealLaunches = async (): Promise<Launch[]> => {
     try {
         console.log("🚀 INITIALIZING LAUNCH CONTROL UPLINK...");
-        const docRef = doc(db, CACHE_COLLECTION, CACHE_DOC_ID);
-        const docSnap = await getDoc(docRef);
 
-        // let launches: Launch[] = [];
-        // let needsUpdate = true;
-
-        // 1. Check Cache
-        if (docSnap.exists()) {
-            const data = docSnap.data();
-            const age = Date.now() - (data.lastUpdated || 0);
-
-            if (age < CACHE_DURATION_MS && data.launches) {
-                console.log(`⚡ LAUNCH CONTROL: CACHE HIT (${(age / 1000 / 60).toFixed(0)}m old).`);
-                return data.launches as Launch[];
-            }
+        // 1. Check Cache (1 Hour TTL)
+        const cachedLaunches = await getSmartCache('global_launches', 1);
+        if (cachedLaunches) {
+            console.log("⚡ LAUNCH CONTROL: CACHE HIT (Standardized).");
+            return cachedLaunches as Launch[];
         }
 
         // 2. Fetch Fresh Data if needed
@@ -542,28 +521,14 @@ export const fetchRealLaunches = async (): Promise<Launch[]> => {
         rawList.forEach((l: any) => uniqueMap.set(l.id, l));
         const freshLaunches = Array.from(uniqueMap.values()) as Launch[];
 
-        // 3. Update Cache
-        await setDoc(docRef, {
-            launches: freshLaunches,
-            lastUpdated: Date.now()
-        });
+        // 3. Update Cache (Generic 'items' wrapper used by setSmartCache)
+        await setSmartCache('global_launches', freshLaunches);
         console.log("💾 LAUNCH CONTROL: UPDATED GLOBAL DATABASE.");
 
         return freshLaunches;
 
     } catch (error) {
         console.error("Error fetching real launches:", error);
-        // Fallback to cache if API fails, even if old
-        try {
-            const docRef = doc(db, CACHE_COLLECTION, CACHE_DOC_ID);
-            const fallbackSnap = await getDoc(docRef);
-            if (fallbackSnap.exists()) {
-                console.warn("⚠️ LAUNCH CONTROL: API FAILED. USING ARCHIVES.");
-                return fallbackSnap.data().launches as Launch[];
-            }
-        } catch (e) {
-            console.error("Cache fallback failed", e);
-        }
         return fetchLaunchesMock();
     }
 };
