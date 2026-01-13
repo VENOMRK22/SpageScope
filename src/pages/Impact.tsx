@@ -626,7 +626,20 @@ export const Impact = () => {
                         <div className="absolute right-0 top-0 bottom-4 w-20 bg-gradient-to-l from-slate-950 to-transparent z-10 pointer-events-none" />
 
                         {epicImages.length === 0 ? (
-                            <div className="text-gray-500 font-mono italic p-4">Acquiring Visual Uplink...</div>
+                            <div className="w-full flex flex-col items-center justify-center py-12 bg-black/40 rounded-3xl border border-white/5 relative overflow-hidden">
+                                {/* Holographic Earth Fallback */}
+                                <div className="relative w-48 h-48 mb-6">
+                                    <div className="absolute inset-0 rounded-full border-2 border-blue-500/30 animate-[spin_10s_linear_infinite]"></div>
+                                    <div className="absolute inset-2 rounded-full border border-dashed border-neon-cyan/50 animate-[spin_20s_linear_infinite_reverse]"></div>
+                                    <div className="absolute inset-0 flex items-center justify-center">
+                                        <Globe className="w-32 h-32 text-blue-500/80 animate-pulse" strokeWidth={0.5} />
+                                    </div>
+                                    {/* Scan Line */}
+                                    <div className="absolute inset-0 bg-gradient-to-b from-transparent via-neon-cyan/20 to-transparent h-full w-full animate-[ping_3s_ease-in-out_infinite] opacity-30"></div>
+                                </div>
+                                <h3 className="text-xl font-orbitron text-neon-cyan tracking-widest mb-2">VISUAL UPLINK OFFLINE</h3>
+                                <p className="text-xs font-mono text-gray-500">SWITCHING TO HOLOGRAPHIC REPRESENTATION</p>
+                            </div>
                         ) : (
                             <motion.div
                                 className="flex space-x-6 w-max"
@@ -634,14 +647,9 @@ export const Impact = () => {
                                 transition={{
                                     repeat: Infinity,
                                     ease: "linear",
-                                    duration: 40, // Slow smooth scroll
+                                    duration: 40,
                                     repeatType: "loop"
                                 }}
-                                whileHover={{ opacity: 1 }} // Just to keep the prop valid, pause is handled best via CSS or logic, but standard motion doesn't pause easily on hover without variants. 
-                            // Alternative: User may want to inspect, so let's stick to standard scroll or slow move. 
-                            // Actually, standard practice for "auto scroll" is just movement.
-                            // To support "Pause on Hover", we need to wrap in a parent with onMouseEnter/Leave managing animation controls or use simple CSS class logic.
-                            // Given limitations, I will use a simple slow scroll which is usually acceptable, or add a style tag for hover-pause.
                             >
                                 {/* Duplicate list for seamless loop */}
                                 {[...epicImages, ...epicImages].map((img, idx) => (
